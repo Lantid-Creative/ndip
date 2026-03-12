@@ -369,7 +369,7 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
               </div>
               <div>
                 <h4 className="font-serif text-xl text-foreground leading-snug">{analysis.headline}</h4>
-                <button onClick={generateInsights} className="text-xs text-muted-foreground hover:text-primary mt-1 transition-colors">
+                <button onClick={() => generateInsights()} className="text-xs text-muted-foreground hover:text-primary mt-1 transition-colors">
                   Regenerate analysis
                 </button>
               </div>
