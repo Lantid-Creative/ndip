@@ -83,7 +83,7 @@ const Index = () => {
             <div className="container mx-auto px-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
                 <h1 className="text-3xl md:text-4xl lg:text-[2.75rem] text-foreground leading-tight font-normal">
-                  NaijaData brings together Nigeria's public data, making it simple to explore
+                  Nigeria Intelligence Platform brings together Nigeria's public data, making it simple to explore
                 </h1>
                 <div>
                   <h2 className="text-base font-semibold text-foreground mb-4">Topics to explore</h2>
