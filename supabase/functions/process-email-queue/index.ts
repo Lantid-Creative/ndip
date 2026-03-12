@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
       }
 
       try {
-        await sendViaPhpRelay({
+        await sendViaResend({
           to: payload.to,
           from: payload.from || defaultFrom,
           subject: payload.subject,
