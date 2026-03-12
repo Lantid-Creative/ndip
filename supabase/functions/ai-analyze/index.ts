@@ -22,29 +22,21 @@ serve(async (req) => {
   try {
     const { query, dataSummary } = await req.json();
 
-    const systemPrompt = `You are NaijaData AI — an expert data analyst specializing in Nigeria's socio-economic landscape. 
+    const systemPrompt = `You are NaijaData AI — an expert data analyst specializing in Nigeria's socio-economic landscape. You analyze data from Google's Data Commons and return structured, insightful analysis.
 
-When given a user query and data from Google's Data Commons, you provide:
+You MUST call the "present_analysis" function with your analysis. Be specific with actual numbers from the data. Be insightful, not generic. Always reference Nigeria specifically.
 
-1. **Key Insights** — 3-5 bullet points highlighting the most important findings from the data
-2. **Context & Significance** — Why these numbers matter for Nigeria (compare with regional/global benchmarks when relevant)
-3. **Trends & Projections** — What the trajectory suggests about Nigeria's future
-4. **Policy Implications** — What decision-makers and policymakers should consider
-5. **Questions to Explore Next** — 2-3 follow-up data questions that would deepen understanding
-
-Format your response in clean markdown. Be specific with numbers from the data. Be insightful, not generic. Always reference Nigeria specifically.`;
+For comparisons, compare Nigeria's metrics against well-known global/regional benchmarks you know (e.g. world average, Sub-Saharan Africa average, South Africa, Ghana, Kenya, India, etc).`;
 
     const userPrompt = `User asked: "${query}"
 
-Here is the data retrieved from Data Commons:
-
+Data from Data Commons:
 ${dataSummary}
 
-Provide a deep, insightful analysis of this data for Nigeria.`;
+Analyze this data deeply for Nigeria. Use actual numbers.`;
 
-    // Ensure endpoint ends properly
     const endpoint = AZURE_ENDPOINT.endsWith('/') ? AZURE_ENDPOINT.slice(0, -1) : AZURE_ENDPOINT;
-    
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -57,8 +49,78 @@ Provide a deep, insightful analysis of this data for Nigeria.`;
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: 1500,
-        stream: true,
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'present_analysis',
+              description: 'Present structured data analysis with visual components',
+              parameters: {
+                type: 'object',
+                properties: {
+                  headline: {
+                    type: 'string',
+                    description: 'A punchy one-line headline summarizing the key finding (max 15 words)'
+                  },
+                  keyMetrics: {
+                    type: 'array',
+                    description: '2-4 key metrics to highlight visually',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        label: { type: 'string', description: 'Metric name (e.g. "Population")' },
+                        value: { type: 'string', description: 'Formatted value (e.g. "232.7M")' },
+                        context: { type: 'string', description: 'Brief context (e.g. "7th largest globally")' },
+                        trend: { type: 'string', enum: ['up', 'down', 'stable'], description: 'Direction of trend' },
+                      },
+                      required: ['label', 'value', 'context', 'trend'],
+                    },
+                  },
+                  insights: {
+                    type: 'array',
+                    description: '3-5 deep analytical insights, each with a title and explanation',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        title: { type: 'string', description: 'Insight title (3-6 words)' },
+                        text: { type: 'string', description: 'Insightful explanation (2-3 sentences)' },
+                        sentiment: { type: 'string', enum: ['positive', 'negative', 'neutral', 'warning'] },
+                      },
+                      required: ['title', 'text', 'sentiment'],
+                    },
+                  },
+                  comparisons: {
+                    type: 'array',
+                    description: '2-3 comparisons with other countries or global averages',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        metric: { type: 'string', description: 'What is being compared' },
+                        nigeria: { type: 'string', description: 'Nigeria value' },
+                        other: { type: 'string', description: 'Comparison value' },
+                        otherName: { type: 'string', description: 'Name of comparison (e.g. "World Average")' },
+                        nigeriaPercent: { type: 'number', description: 'Nigeria as percentage for bar (0-100)' },
+                        otherPercent: { type: 'number', description: 'Other as percentage for bar (0-100)' },
+                      },
+                      required: ['metric', 'nigeria', 'other', 'otherName', 'nigeriaPercent', 'otherPercent'],
+                    },
+                  },
+                  policyNote: {
+                    type: 'string',
+                    description: 'A brief policy implication or recommendation (2-3 sentences)'
+                  },
+                  nextQuestions: {
+                    type: 'array',
+                    description: '3 follow-up questions to explore deeper',
+                    items: { type: 'string' },
+                  },
+                },
+                required: ['headline', 'keyMetrics', 'insights', 'comparisons', 'policyNote', 'nextQuestions'],
+              },
+            },
+          },
+        ],
+        tool_choice: { type: 'function', function: { name: 'present_analysis' } },
       }),
     });
 
@@ -70,9 +132,20 @@ Provide a deep, insightful analysis of this data for Nigeria.`;
       });
     }
 
-    // Stream the response back
-    return new Response(response.body, {
-      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+    const result = await response.json();
+    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    
+    if (!toolCall?.function?.arguments) {
+      console.error('No tool call in response:', JSON.stringify(result));
+      return new Response(JSON.stringify({ error: 'AI did not return structured analysis' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const analysis = JSON.parse(toolCall.function.arguments);
+
+    return new Response(JSON.stringify(analysis), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error: unknown) {
