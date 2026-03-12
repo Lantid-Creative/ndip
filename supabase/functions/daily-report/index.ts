@@ -95,9 +95,10 @@ async function fetchIndicatorsForTopics(apiKey: string, topics: string[]) {
 }
 
 async function generateAIAnalysis(indicators: { label: string; value: string; date: string; topic: string }[], topics: string[]) {
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
-  if (!lovableApiKey) {
-    console.error('LOVABLE_API_KEY not configured')
+  const azureEndpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT')
+  const azureKey = Deno.env.get('AZURE_OPENAI_API_KEY')
+  if (!azureEndpoint || !azureKey) {
+    console.error('Azure OpenAI credentials not configured')
     return null
   }
 
@@ -122,14 +123,13 @@ STYLE GUIDELINES:
 TOPICS TO FOCUS ON: ${topics.join(', ')}`
 
   try {
-    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const resp = await fetch(azureEndpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'api-key': azureKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           {
@@ -141,14 +141,13 @@ TOPICS TO FOCUS ON: ${topics.join(', ')}`
     })
 
     if (!resp.ok) {
-      const errText = await resp.text()
-      console.error('Lovable AI error:', resp.status, errText)
+      console.error('Azure OpenAI error:', resp.status, await resp.text())
       return null
     }
     const result = await resp.json()
     return result.choices?.[0]?.message?.content || null
   } catch (e) {
-    console.error('AI analysis call failed:', e)
+    console.error('Azure OpenAI call failed:', e)
     return null
   }
 }
