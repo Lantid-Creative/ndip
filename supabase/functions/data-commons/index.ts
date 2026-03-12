@@ -87,17 +87,15 @@ serve(async (req) => {
       const text = await response.text();
       console.error(`Data Commons returned non-JSON (${response.status}): ${text.substring(0, 200)}`);
 
-      if (endpoint === 'nl') {
-        return new Response(JSON.stringify({
-          failure: true,
-          error: `No structured Data Commons response for this query right now. Please try a country-level query or rephrase.`,
-        }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify({ error: `Data Commons returned non-JSON response (${response.status}). The API may be unavailable for this query.` }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({
+        failure: true,
+        error: endpoint === 'nl'
+          ? 'No structured Data Commons response for this query right now. Please try a country-level query or rephrase.'
+          : `Data Commons returned non-JSON response (${response.status}).`,
+        status: response.status,
+        endpoint,
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -106,17 +104,14 @@ serve(async (req) => {
     if (!response.ok) {
       console.error(`Data Commons API error [${response.status}]:`, JSON.stringify(data));
 
-      if (endpoint === 'nl') {
-        return new Response(JSON.stringify({
-          failure: true,
-          error: data?.error || `Data Commons could not fulfill this NL query right now.`,
-        }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify({ error: `Data Commons API error`, status: response.status, details: data }), {
-        status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({
+        failure: true,
+        error: data?.error || `Data Commons API error (${response.status}).`,
+        status: response.status,
+        endpoint,
+        details: data,
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 

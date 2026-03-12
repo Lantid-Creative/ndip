@@ -10,19 +10,13 @@ export async function queryDataCommons(request: DataCommonsParams) {
     body: request,
   });
 
-  // For NL queries, always return a safe payload so UI can render fallback states.
+  // Return safe failure payload instead of throwing to avoid hard runtime crashes in UI.
   if (error) {
-    if (request.endpoint === 'nl') {
-      return { failure: true, error: error.message || 'Failed to query Data Commons' };
-    }
-    throw new Error(error.message || 'Failed to query Data Commons');
+    return { failure: true, error: error.message || 'Failed to query Data Commons', endpoint: request.endpoint };
   }
 
-  if (data?.error) {
-    if (request.endpoint === 'nl') {
-      return { failure: true, error: String(data.error) };
-    }
-    throw new Error(String(data.error));
+  if (data?.error && !data?.failure) {
+    return { failure: true, error: String(data.error), endpoint: request.endpoint };
   }
 
   return data;
