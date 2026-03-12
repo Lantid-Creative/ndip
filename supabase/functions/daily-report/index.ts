@@ -3,22 +3,66 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 const DATA_COMMONS_API = 'https://api.datacommons.org/v2/observation';
 
-const INDICATORS = [
-  { dcid: 'Count_Person', label: 'Population', format: (v: number) => `${(v / 1_000_000).toFixed(1)}M` },
-  { dcid: 'LifeExpectancy_Person', label: 'Life Expectancy', format: (v: number) => `${v.toFixed(1)} years` },
-  { dcid: 'Amount_EconomicActivity_GrossDomesticProduction_Nominal_PerCapita', label: 'GDP Per Capita', format: (v: number) => `$${v.toLocaleString()}` },
-  { dcid: 'UnemploymentRate_Person', label: 'Unemployment Rate', format: (v: number) => `${v.toFixed(1)}%` },
-  { dcid: 'FertilityRate_Person_Female', label: 'Fertility Rate', format: (v: number) => `${v.toFixed(2)} births/woman` },
-  { dcid: 'Count_Death_0Years_AsFractionOf_Count_BirthEvent_LiveBirth', label: 'Infant Mortality', format: (v: number) => `${v.toFixed(1)} per 1,000` },
-];
+// Topic -> Data Commons indicators mapping
+const TOPIC_INDICATORS: Record<string, { dcid: string; label: string; format: (v: number) => string }[]> = {
+  economics: [
+    { dcid: 'Amount_EconomicActivity_GrossDomesticProduction_Nominal_PerCapita', label: 'GDP Per Capita', format: (v) => `$${v.toLocaleString()}` },
+    { dcid: 'UnemploymentRate_Person', label: 'Unemployment Rate', format: (v) => `${v.toFixed(1)}%` },
+  ],
+  demographics: [
+    { dcid: 'Count_Person', label: 'Population', format: (v) => `${(v / 1_000_000).toFixed(1)}M` },
+    { dcid: 'FertilityRate_Person_Female', label: 'Fertility Rate', format: (v) => `${v.toFixed(2)} births/woman` },
+  ],
+  health: [
+    { dcid: 'LifeExpectancy_Person', label: 'Life Expectancy', format: (v) => `${v.toFixed(1)} years` },
+    { dcid: 'Count_Death_0Years_AsFractionOf_Count_BirthEvent_LiveBirth', label: 'Infant Mortality', format: (v) => `${v.toFixed(1)} per 1,000` },
+  ],
+  education: [
+    { dcid: 'Count_Person_EnrolledInSchool', label: 'School Enrollment', format: (v) => `${(v / 1_000_000).toFixed(1)}M` },
+  ],
+  agriculture: [
+    { dcid: 'Area_Farm', label: 'Agricultural Land', format: (v) => `${(v / 1_000_000).toFixed(2)}M hectares` },
+  ],
+  sustainability: [
+    { dcid: 'Amount_Emissions_CarbonDioxide_PerCapita', label: 'CO2 Per Capita', format: (v) => `${v.toFixed(2)} tonnes` },
+  ],
+  infrastructure: [
+    { dcid: 'Count_Person_IsInternetUser_PerCapita', label: 'Internet Users', format: (v) => `${(v * 100).toFixed(1)}%` },
+  ],
+  governance: [
+    { dcid: 'Amount_EconomicActivity_GrossDomesticProduction_Nominal_PerCapita', label: 'GDP Per Capita (governance context)', format: (v) => `$${v.toLocaleString()}` },
+  ],
+  technology: [
+    { dcid: 'Count_Person_IsInternetUser_PerCapita', label: 'Internet Penetration', format: (v) => `${(v * 100).toFixed(1)}%` },
+  ],
+  security: [
+    { dcid: 'Count_Person', label: 'Population', format: (v) => `${(v / 1_000_000).toFixed(1)}M` },
+  ],
+};
 
-async function fetchIndicators(apiKey: string) {
-  const dcids = INDICATORS.map(i => i.dcid);
+async function fetchIndicatorsForTopics(apiKey: string, topics: string[]) {
+  // Collect unique dcids across all topics
+  const indicatorMap = new Map<string, { dcid: string; label: string; format: (v: number) => string; topics: string[] }>();
+  
+  for (const topic of topics) {
+    const indicators = TOPIC_INDICATORS[topic] || [];
+    for (const ind of indicators) {
+      if (!indicatorMap.has(ind.dcid)) {
+        indicatorMap.set(ind.dcid, { ...ind, topics: [topic] });
+      } else {
+        indicatorMap.get(ind.dcid)!.topics.push(topic);
+      }
+    }
+  }
+
+  if (indicatorMap.size === 0) return [];
+
+  const dcids = Array.from(indicatorMap.keys());
   const resp = await fetch(DATA_COMMONS_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
@@ -33,10 +77,10 @@ async function fetchIndicators(apiKey: string) {
   if (!resp.ok) throw new Error(`Data Commons API error: ${resp.status}`);
   const data = await resp.json();
 
-  const results: { label: string; value: string; date: string }[] = [];
-  for (const indicator of INDICATORS) {
+  const results: { label: string; value: string; date: string; topic: string }[] = [];
+  for (const [dcid, indicator] of indicatorMap) {
     try {
-      const facets = data?.byVariable?.[indicator.dcid]?.byEntity?.['country/NGA']?.orderedFacets;
+      const facets = data?.byVariable?.[dcid]?.byEntity?.['country/NGA']?.orderedFacets;
       if (!facets?.length || !facets[0].observations?.length) continue;
       const obs = facets[0].observations;
       const latest = obs[obs.length - 1];
@@ -44,15 +88,63 @@ async function fetchIndicators(apiKey: string) {
         label: indicator.label,
         value: indicator.format(latest.value),
         date: latest.date,
+        topic: indicator.topics[0],
       });
-    } catch { /* skip indicator */ }
+    } catch { /* skip */ }
   }
   return results;
 }
 
-function buildReportHTML(indicators: { label: string; value: string; date: string }[]) {
+async function generateAIAnalysis(indicators: { label: string; value: string; date: string; topic: string }[], topics: string[]) {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) return null;
+
+  const dataContext = indicators.map(i => `${i.label}: ${i.value} (${i.date})`).join('\n');
+
+  try {
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a Nigeria policy intelligence analyst. Write a concise daily briefing newsletter section (3-5 paragraphs) analyzing the following data for Nigeria. Focus on topics: ${topics.join(', ')}. Be insightful, mention trends, compare to regional/global benchmarks where relevant, and highlight actionable implications. Use professional but accessible language. Do NOT use markdown headers or bullet points - write flowing paragraphs.`
+          },
+          {
+            role: 'user',
+            content: `Here is today's Nigeria data:\n${dataContext}\n\nWrite the analysis section for the daily intelligence report.`
+          }
+        ],
+      }),
+    });
+
+    if (!resp.ok) return null;
+    const result = await resp.json();
+    return result.choices?.[0]?.message?.content || null;
+  } catch {
+    return null;
+  }
+}
+
+function buildPersonalizedReportHTML(
+  indicators: { label: string; value: string; date: string; topic: string }[],
+  topics: string[],
+  aiAnalysis: string | null,
+  email: string
+) {
   const date = new Date().toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  
+
+  const topicLabels: Record<string, string> = {
+    economics: 'Economics', demographics: 'Demographics', health: 'Health',
+    education: 'Education', agriculture: 'Agriculture', sustainability: 'Sustainability',
+    infrastructure: 'Infrastructure', governance: 'Governance', technology: 'Technology', security: 'Security',
+  };
+
   const rows = indicators.map(i => `
     <tr>
       <td style="padding: 12px 16px; border-bottom: 1px solid #e5e5e5; font-weight: 500; color: #1a1a2e;">${i.label}</td>
@@ -61,16 +153,28 @@ function buildReportHTML(indicators: { label: string; value: string; date: strin
     </tr>
   `).join('');
 
+  const topicBadges = topics.map(t =>
+    `<span style="display: inline-block; background: #e8f5e9; color: #0A6847; padding: 4px 10px; border-radius: 12px; font-size: 12px; margin: 2px;">${topicLabels[t] || t}</span>`
+  ).join(' ');
+
+  const analysisSection = aiAnalysis ? `
+    <div style="margin-top: 24px; padding: 20px; background: #f8f9fa; border-radius: 12px; border-left: 4px solid #0A6847;">
+      <h2 style="margin: 0 0 12px; font-size: 16px; color: #1a1a2e;">AI Intelligence Analysis</h2>
+      <div style="font-size: 14px; color: #333; line-height: 1.7;">${aiAnalysis.replace(/\n/g, '<br/>')}</div>
+    </div>
+  ` : '';
+
   return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
   <div style="max-width: 600px; margin: 0 auto; padding: 32px 20px;">
-    <div style="text-align: center; margin-bottom: 32px;">
+    <div style="text-align: center; margin-bottom: 24px;">
       <div style="display: inline-block; background: #0A6847; color: white; font-weight: bold; padding: 8px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 12px;">NIP</div>
-      <h1 style="margin: 8px 0 4px; font-size: 22px; color: #1a1a2e;">Nigeria Daily Intelligence Report</h1>
-      <p style="margin: 0; color: #666; font-size: 14px;">${date}</p>
+      <h1 style="margin: 8px 0 4px; font-size: 22px; color: #1a1a2e;">Your Daily Intelligence Report</h1>
+      <p style="margin: 0 0 8px; color: #666; font-size: 14px;">${date}</p>
+      <div style="margin-top: 8px;">${topicBadges}</div>
     </div>
     
     <table style="width: 100%; border-collapse: collapse; background: #fafaf8; border-radius: 12px; overflow: hidden;">
@@ -84,9 +188,11 @@ function buildReportHTML(indicators: { label: string; value: string; date: strin
       <tbody>${rows}</tbody>
     </table>
     
+    ${analysisSection}
+    
     <p style="margin-top: 24px; font-size: 13px; color: #999; text-align: center;">
       Data sourced from Google Data Commons (World Bank, UN, WHO).<br/>
-      <a href="#" style="color: #0A6847;">Unsubscribe</a>
+      <a href="#" style="color: #0A6847;">Manage preferences</a> · <a href="#" style="color: #0A6847;">Unsubscribe</a>
     </p>
   </div>
 </body>
@@ -102,13 +208,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const dataCommonsKey = Deno.env.get('DATA_COMMONS_API_KEY') || '';
-    
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch active subscribers
+    // Fetch active subscribers with their preferences
     const { data: subscribers, error: subError } = await supabase
       .from('subscribers')
-      .select('email')
+      .select('id, email')
       .eq('is_active', true);
 
     if (subError) throw subError;
@@ -118,23 +224,63 @@ serve(async (req) => {
       });
     }
 
-    // Fetch latest indicators
-    const indicators = await fetchIndicators(dataCommonsKey);
-    const html = buildReportHTML(indicators);
+    // Get all preferences
+    const subscriberIds = subscribers.map(s => s.id);
+    const { data: allPrefs } = await supabase
+      .from('subscriber_preferences')
+      .select('subscriber_id, topic')
+      .in('subscriber_id', subscriberIds)
+      .eq('is_active', true);
 
-    // For now, store the generated report. Email sending will be added when email domain is configured.
-    // When email is set up, this will send via the transactional email system.
-    const report = {
+    // Group preferences by subscriber
+    const prefsBySubscriber = new Map<string, string[]>();
+    for (const pref of (allPrefs || [])) {
+      const existing = prefsBySubscriber.get(pref.subscriber_id) || [];
+      existing.push(pref.topic);
+      prefsBySubscriber.set(pref.subscriber_id, existing);
+    }
+
+    // Find unique topic combinations to minimize API calls
+    const topicCombinations = new Map<string, { topics: string[]; subscribers: { id: string; email: string }[] }>();
+    
+    for (const sub of subscribers) {
+      const topics = prefsBySubscriber.get(sub.id) || [];
+      if (topics.length === 0) continue; // Skip subscribers with no preferences
+      const key = [...topics].sort().join(',');
+      if (!topicCombinations.has(key)) {
+        topicCombinations.set(key, { topics, subscribers: [] });
+      }
+      topicCombinations.get(key)!.subscribers.push(sub);
+    }
+
+    const reports: any[] = [];
+
+    // Generate personalized report for each topic combination
+    for (const [key, combo] of topicCombinations) {
+      const indicators = await fetchIndicatorsForTopics(dataCommonsKey, combo.topics);
+      const aiAnalysis = await generateAIAnalysis(indicators, combo.topics);
+
+      for (const sub of combo.subscribers) {
+        const html = buildPersonalizedReportHTML(indicators, combo.topics, aiAnalysis, sub.email);
+        reports.push({
+          email: sub.email,
+          topics: combo.topics,
+          indicator_count: indicators.length,
+          has_ai_analysis: !!aiAnalysis,
+          html_preview: html,
+        });
+      }
+    }
+
+    console.log(`Generated ${reports.length} personalized reports for ${subscribers.length} subscribers`);
+
+    return new Response(JSON.stringify({
       generated_at: new Date().toISOString(),
-      subscriber_count: subscribers.length,
-      indicators,
-      html_preview: html,
-      status: 'generated', // will be 'sent' once email is configured
-    };
-
-    console.log(`Report generated for ${subscribers.length} subscribers with ${indicators.length} indicators`);
-
-    return new Response(JSON.stringify(report), {
+      total_subscribers: subscribers.length,
+      reports_generated: reports.length,
+      reports,
+      status: 'generated',
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
