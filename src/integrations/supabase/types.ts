@@ -49,22 +49,31 @@ export type Database = {
       subscribers: {
         Row: {
           email: string
+          first_name: string | null
           id: string
           is_active: boolean
+          last_name: string | null
+          preferred_hour: number | null
           subscribed_at: string
           unsubscribed_at: string | null
         }
         Insert: {
           email: string
+          first_name?: string | null
           id?: string
           is_active?: boolean
+          last_name?: string | null
+          preferred_hour?: number | null
           subscribed_at?: string
           unsubscribed_at?: string | null
         }
         Update: {
           email?: string
+          first_name?: string | null
           id?: string
           is_active?: boolean
+          last_name?: string | null
+          preferred_hour?: number | null
           subscribed_at?: string
           unsubscribed_at?: string | null
         }
