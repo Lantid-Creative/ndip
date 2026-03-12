@@ -205,6 +205,9 @@ function buildPersonalizedReportHTML(
     <p style="font-size: 15px; color: #1a1a2e; margin-bottom: 8px;">${greeting}</p>
     <p style="font-size: 14px; color: #555; margin-bottom: 24px;">Here's what's happening across your tracked sectors today, backed by the latest available data.</p>
     
+    ${analysisSection}
+
+    <h3 style="margin: 28px 0 12px; font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">📊 Supporting Data</h3>
     <table style="width: 100%; border-collapse: collapse; background: #fafaf8; border-radius: 12px; overflow: hidden;">
       <thead>
         <tr style="background: #0A6847;">
@@ -215,8 +218,6 @@ function buildPersonalizedReportHTML(
       </thead>
       <tbody>${rows}</tbody>
     </table>
-    
-    ${analysisSection}
     
     <div style="margin-top: 24px; text-align: center;">
       <a href="${PLATFORM_URL}" style="display: inline-block; background: #0A6847; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">Explore the Platform →</a>
