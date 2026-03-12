@@ -183,9 +183,10 @@ function buildPersonalizedReportHTML(
   const greeting = firstName ? `Hi ${firstName},` : 'Hello,'
 
   const analysisSection = aiAnalysis ? `
-    <div style="margin-top: 24px; padding: 20px; background: #f8f9fa; border-radius: 12px; border-left: 4px solid #0A6847;">
-      <h2 style="margin: 0 0 12px; font-size: 16px; color: #1a1a2e;">AI Intelligence Analysis</h2>
-      <div style="font-size: 14px; color: #333; line-height: 1.7;">${aiAnalysis.replace(/\n/g, '<br/>')}</div>
+    <div style="margin-top: 24px; padding: 24px; background: #fafcfa; border-radius: 12px; border-left: 4px solid #0A6847;">
+      <h2 style="margin: 0 0 4px; font-size: 17px; color: #0A6847;">📰 Today's Intelligence Briefing</h2>
+      <p style="margin: 0 0 16px; font-size: 12px; color: #999;">AI-generated analysis based on official data sources</p>
+      <div style="font-size: 15px; color: #222; line-height: 1.75;">${aiAnalysis.replace(/\n\n/g, '</p><p style="margin: 12px 0; font-size: 15px; color: #222; line-height: 1.75;">').replace(/\n/g, '<br/>')}</div>
     </div>
   ` : ''
 
@@ -195,14 +196,14 @@ function buildPersonalizedReportHTML(
 <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
   <div style="max-width: 600px; margin: 0 auto; padding: 32px 20px;">
     <div style="text-align: center; margin-bottom: 24px;">
-      <div style="display: inline-block; background: #0A6847; color: white; font-weight: bold; padding: 8px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 12px;">NDIP</div>
-      <h1 style="margin: 8px 0 4px; font-size: 22px; color: #1a1a2e;">Your Daily Intelligence Report</h1>
+      <div style="display: inline-block; background: linear-gradient(135deg, #0a6b3d, #0f8a4f); color: white; font-weight: bold; padding: 10px 18px; border-radius: 8px; font-size: 15px; margin-bottom: 12px;">🇳🇬 NDIP</div>
+      <h1 style="margin: 8px 0 4px; font-size: 22px; color: #1a1a2e;">Daily Intelligence Report</h1>
       <p style="margin: 0 0 8px; color: #666; font-size: 14px;">${date}</p>
       <div style="margin-top: 8px;">${topicBadges}</div>
     </div>
     
-    <p style="font-size: 15px; color: #1a1a2e; margin-bottom: 20px;">${greeting}</p>
-    <p style="font-size: 14px; color: #555; margin-bottom: 24px;">Here's your personalized intelligence briefing based on your selected topics.</p>
+    <p style="font-size: 15px; color: #1a1a2e; margin-bottom: 8px;">${greeting}</p>
+    <p style="font-size: 14px; color: #555; margin-bottom: 24px;">Here's what's happening across your tracked sectors today, backed by the latest available data.</p>
     
     <table style="width: 100%; border-collapse: collapse; background: #fafaf8; border-radius: 12px; overflow: hidden;">
       <thead>
