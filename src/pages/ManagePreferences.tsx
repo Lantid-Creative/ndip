@@ -167,7 +167,7 @@ export default function ManagePreferences() {
           </a>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-[10px]">NIP</span>
+              <span className="text-primary-foreground font-bold text-[8px]">NDIP</span>
             </div>
             <span className="font-serif text-lg text-foreground">Manage Newsletter</span>
           </div>
