@@ -130,8 +130,7 @@ Deno.serve(async (req) => {
       payload: {
         message_id: messageId,
         to: email,
-        from: 'NDIP <no-reply@notify.ndip.ng>',
-        sender_domain: 'notify.ndip.ng',
+        from: `${Deno.env.get('SMTP_FROM_NAME') || 'NDIP Nigeria'} <${Deno.env.get('SMTP_FROM_EMAIL') || 'update@ndip.ng'}>`,
         subject: `Welcome to NDIP, ${firstName}! 🇳🇬 Your Daily Intelligence Report is ready`,
         html,
         text: `Welcome ${firstName}! You've subscribed to the Nigeria Data Intelligence Platform Daily Report. Topics: ${topics.join(', ')}. Delivery: daily. Visit https://ndip.lovable.app to explore.`,
