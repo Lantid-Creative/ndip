@@ -52,9 +52,9 @@ const Index = () => {
         <div className="container mx-auto px-4 flex items-center h-14 gap-4">
           <div className="flex items-center gap-2 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">ND</span>
+              <span className="text-primary-foreground font-bold text-[10px]">NIP</span>
             </div>
-            <span className="font-serif text-lg text-foreground">NaijaData</span>
+            <span className="font-serif text-lg text-foreground">Nigeria Intelligence Platform</span>
           </div>
 
           <form onSubmit={handleSubmit} className="flex-1 max-w-2xl">
