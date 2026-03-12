@@ -514,6 +514,29 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
                 </div>
               </motion.div>
             )}
+
+            {/* Follow-up question */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.1 }}
+            >
+              <form onSubmit={handleFollowUp} className="flex gap-2 items-center">
+                <div className="relative flex-1">
+                  <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                    placeholder="Ask a follow-up question about this data..."
+                    className="w-full pl-9 pr-4 h-10 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  />
+                </div>
+                <Button type="submit" size="sm" disabled={!followUp.trim() || isLoading} className="gap-1.5 shrink-0">
+                  {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                  Ask
+                </Button>
+              </form>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
