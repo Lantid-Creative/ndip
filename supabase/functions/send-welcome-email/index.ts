@@ -77,7 +77,7 @@ function generateWelcomeHtml(firstName: string, topics: string[], preferredHour:
           <!-- CTA -->
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
             <tr><td style="background-color:#0a6b3d;border-radius:8px;">
-              <a href="https://ndip.lovable.app" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
+              <a href="https://ndip.ng" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
                 Explore the Platform →
               </a>
             </td></tr>
