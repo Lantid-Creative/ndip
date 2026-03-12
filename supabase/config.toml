@@ -1,1 +1,4 @@
 project_id = "xucoadixeyuowowcrkwg"
+
+[functions.data-commons]
+verify_jwt = false
