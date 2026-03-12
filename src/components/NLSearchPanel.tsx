@@ -1,7 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
-import { Search, Loader2, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info, XCircle, ChevronRight } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Loader2, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info, XCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useNLQuery } from "@/hooks/useDataCommons";
 import { getTimeSeries, getObservation } from "@/lib/datacommons";
 import { parseTimeSeries, parseLatestValue } from "@/hooks/useDataCommons";
@@ -9,14 +8,6 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-
-const EXAMPLE_QUERIES = [
-  "What is Nigeria's population?",
-  "Health in Nigeria",
-  "Life expectancy in Nigeria over time",
-  "CO2 emissions per capita in Nigeria",
-  "Fertility rate in Nigeria",
-];
 
 const CHART_COLORS = ['#c5221f', '#1a73e8', '#34a853', '#f9ab00', '#9334e6'];
 
@@ -588,24 +579,30 @@ function RelatedTopics({ data, onTopicClick }: { data: any; onTopicClick: (q: st
 
 // ─── Main panel ─────────────────────────────────────────────────────
 
-const NLSearchPanel = () => {
-  const [inputValue, setInputValue] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
+interface NLSearchPanelProps {
+  initialQuery: string;
+  onQueryChange?: (q: string) => void;
+}
+
+const NLSearchPanel = ({ initialQuery, onQueryChange }: NLSearchPanelProps) => {
+  const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [collectedData, setCollectedData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (initialQuery && initialQuery !== submittedQuery) {
+      setCollectedData({});
+      setSubmittedQuery(initialQuery);
+    }
+  }, [initialQuery]);
 
   const { data, isLoading, error } = useNLQuery(submittedQuery);
   const blocks = useMemo(() => (data ? extractBlocks(data) : []), [data]);
   const hasFailure = data?.failure;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputValue.trim()) { setCollectedData({}); setSubmittedQuery(inputValue.trim()); }
-  };
-
   const handleQueryClick = (q: string) => {
-    setInputValue(q);
     setCollectedData({});
     setSubmittedQuery(q);
+    onQueryChange?.(q);
   };
 
   const handleDataLoaded = useCallback((key: string, d: any) => {
@@ -614,33 +611,22 @@ const NLSearchPanel = () => {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="Ask anything about Nigeria's data..." className="pl-10 h-12 text-base" />
+      {isLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Searching...
         </div>
-        <Button type="submit" disabled={isLoading || !inputValue.trim()} className="h-12 px-6">
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
-        </Button>
-      </form>
-
-      <div className="flex flex-wrap gap-2">
-        {EXAMPLE_QUERIES.map((q) => (
-          <button key={q} onClick={() => handleQueryClick(q)} className="text-xs px-3 py-1.5 rounded-full bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-            {q}
-          </button>
-        ))}
-      </div>
+      )}
 
       {error && <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm">Failed to query. Please try a different question.</div>}
       {hasFailure && !isLoading && <div className="bg-secondary/20 text-muted-foreground p-4 rounded-lg text-sm">{data.failure}</div>}
 
       {!hasFailure && blocks.length > 0 && !isLoading && (
         <div className="space-y-8 animate-fade-in">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary" />
-            <h3 className="font-serif text-xl text-foreground">Results for "{submittedQuery}"</h3>
+          <div className="text-sm text-muted-foreground">
+            Here's what we found for your search query:
           </div>
+          <h3 className="font-serif text-2xl md:text-3xl text-foreground">{submittedQuery}</h3>
 
           {blocks.map((block, bi) => (
             <section key={bi} className="space-y-3">
