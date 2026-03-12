@@ -144,6 +144,7 @@ function buildPersonalizedReportHTML(
   indicators: { label: string; value: string; date: string; topic: string }[],
   topics: string[],
   aiAnalysis: string | null,
+  firstName: string,
   email: string
 ) {
   const date = new Date().toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -166,6 +167,8 @@ function buildPersonalizedReportHTML(
     `<span style="display: inline-block; background: #e8f5e9; color: #0A6847; padding: 4px 10px; border-radius: 12px; font-size: 12px; margin: 2px;">${topicLabels[t] || t}</span>`
   ).join(' ');
 
+  const greeting = firstName ? `Hi ${firstName},` : 'Hello,';
+
   const analysisSection = aiAnalysis ? `
     <div style="margin-top: 24px; padding: 20px; background: #f8f9fa; border-radius: 12px; border-left: 4px solid #0A6847;">
       <h2 style="margin: 0 0 12px; font-size: 16px; color: #1a1a2e;">AI Intelligence Analysis</h2>
@@ -185,6 +188,9 @@ function buildPersonalizedReportHTML(
       <p style="margin: 0 0 8px; color: #666; font-size: 14px;">${date}</p>
       <div style="margin-top: 8px;">${topicBadges}</div>
     </div>
+    
+    <p style="font-size: 15px; color: #1a1a2e; margin-bottom: 20px;">${greeting}</p>
+    <p style="font-size: 14px; color: #555; margin-bottom: 24px;">Here's your personalized intelligence briefing based on your selected topics.</p>
     
     <table style="width: 100%; border-collapse: collapse; background: #fafaf8; border-radius: 12px; overflow: hidden;">
       <thead>
