@@ -5,7 +5,7 @@ const DEFAULT_BATCH_SIZE = 10
 const DEFAULT_SEND_DELAY_MS = 200
 const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
-const PHP_RELAY_URL = 'https://ndip.ng/api/send-email.php'
+const RESEND_API_URL = 'https://api.resend.com/emails'
 
 function isRateLimited(error: unknown): boolean {
   if (error && typeof error === 'object' && 'status' in error) {
@@ -21,49 +21,37 @@ function getRetryAfterSeconds(error: unknown): number {
   return 60
 }
 
-async function sendViaPhpRelay(payload: {
+async function sendViaResend(payload: {
   to: string
   from: string
   subject: string
   html: string
   text?: string
 }) {
-  const apiKey = Deno.env.get('PHP_RELAY_API_KEY')
-  if (!apiKey) throw new Error('PHP_RELAY_API_KEY not configured')
+  const apiKey = Deno.env.get('RESEND_API_KEY')
+  if (!apiKey) throw new Error('RESEND_API_KEY not configured')
 
-  // Parse "Name <email>" format
-  let fromName = 'NDIP Nigeria'
-  let fromEmail = 'update@ndip.ng'
-  const match = payload.from.match(/^(.+?)\s*<(.+?)>$/)
-  if (match) {
-    fromName = match[1].trim()
-    fromEmail = match[2].trim()
-  }
-
-  const response = await fetch(PHP_RELAY_URL, {
+  const response = await fetch(RESEND_API_URL, {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'X-API-Key': apiKey,
     },
     body: JSON.stringify({
-      to: payload.to,
+      from: payload.from,
+      to: [payload.to],
       subject: payload.subject,
       html: payload.html,
-      text: payload.text || '',
-      from_name: fromName,
-      from_email: fromEmail,
+      text: payload.text || undefined,
     }),
   })
 
   if (!response.ok) {
     const body = await response.text()
-    throw new Error(`PHP relay error (${response.status}): ${body}`)
-  }
-
-  const result = await response.json()
-  if (!result.success) {
-    throw new Error(`PHP relay failed: ${JSON.stringify(result)}`)
+    const status = response.status
+    const error: any = new Error(`Resend API error (${status}): ${body}`)
+    error.status = status
+    throw error
   }
 }
 
