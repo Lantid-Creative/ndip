@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp, BarChart3 } from "lucide-react";
+import { ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp, BarChart3, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import NLSearchPanel from "@/components/NLSearchPanel";
 import SearchBar from "@/components/SearchBar";
@@ -414,24 +414,34 @@ const Index = () => {
                     <span className="text-primary">made simple</span>{" "}
                     to explore
                   </h1>
-                  <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed mb-8">
-                    Ask questions in plain language and get instant charts, data, and AI-powered analysis about Nigeria's economy, health, demographics, and more.
-                  </p>
-                </motion.div>
+                    <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed mb-8">
+                      Ask questions in plain language and get instant charts, data, and AI-powered analysis about Nigeria's economy, health, demographics, and more.
+                    </p>
+                  </motion.div>
 
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.15 }}
-                >
-                  <SearchBar
-                    value={query}
-                    onChange={setQuery}
-                    onSearch={handleSearch}
-                    variant="hero"
-                    className="max-w-xl mx-auto"
-                  />
-                </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.15 }}
+                  >
+                    <SearchBar
+                      value={query}
+                      onChange={setQuery}
+                      onSearch={handleSearch}
+                      variant="hero"
+                      className="max-w-xl mx-auto"
+                    />
+                    <div className="flex justify-center mt-4">
+                      <Link
+                        to="/chat"
+                        className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Chat with NDIP Intelligence
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </motion.div>
               </div>
 
               {/* Topics */}
