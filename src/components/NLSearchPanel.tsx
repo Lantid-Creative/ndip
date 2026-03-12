@@ -174,7 +174,7 @@ function SourceAttribution({ data, dcid, mainPlace }: { data: any; dcid: string;
   const source = getSourceInfo(data, dcid, mainPlace);
   if (!source?.domain) return null;
   return (
-    <p className="text-[11px] text-muted-foreground mt-1">
+    <p className="text-[11px] text-muted-foreground mt-1 truncate">
       Source: <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{source.domain}</a>
     </p>
   );
