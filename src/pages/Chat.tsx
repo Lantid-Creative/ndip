@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react"
-import { Send, Loader2, Sparkles, BarChart3, Trash2, TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react"
+import { Send, Loader2, Sparkles, BarChart3, Trash2, TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react"
 import { Link } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import ReactMarkdown from "react-markdown"
