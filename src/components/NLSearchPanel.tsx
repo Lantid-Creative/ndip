@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Search, Loader2, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Loader2, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info, XCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNLQuery } from "@/hooks/useDataCommons";
@@ -8,7 +8,7 @@ import { parseTimeSeries, parseLatestValue } from "@/hooks/useDataCommons";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
+import { motion, AnimatePresence } from "framer-motion";
 
 const EXAMPLE_QUERIES = [
   "What is Nigeria's population?",
@@ -20,14 +20,13 @@ const EXAMPLE_QUERIES = [
 
 const CHART_COLORS = ['#c5221f', '#1a73e8', '#34a853', '#f9ab00', '#9334e6'];
 
-// ─── Data extraction helpers ────────────────────────────────────────
+// ─── Data extraction ────────────────────────────────────────────────
 
 function extractBlocks(data: any) {
   if (!data?.config?.categories) return [];
   const blocks: any[] = [];
   const category = data.config.categories[0];
   if (!category?.blocks) return [];
-
   const statVarSpec = category.statVarSpec || {};
   const placeDcids = data.config?.metadata?.placeDcid || [];
   const mainPlace = placeDcids[0] || 'country/NGA';
@@ -49,7 +48,6 @@ function extractBlocks(data: any) {
   return blocks;
 }
 
-/** Build a text summary of fetched data for the AI prompt */
 function buildDataSummary(blocks: any[], collectedData: Record<string, any>): string {
   const lines: string[] = [];
   for (const block of blocks) {
@@ -66,8 +64,7 @@ function buildDataSummary(blocks: any[], collectedData: Record<string, any>): st
         } else {
           const series = parseTimeSeries(d, sv.dcid, block.mainPlace);
           if (series.length > 0) {
-            const first = series[0];
-            const last = series[series.length - 1];
+            const first = series[0]; const last = series[series.length - 1];
             lines.push(`- ${sv.name}: from ${first.value} (${first.date}) to ${last.value} (${last.date}), ${series.length} data points`);
           }
         }
@@ -81,19 +78,11 @@ function buildDataSummary(blocks: any[], collectedData: Record<string, any>): st
 
 function ChartTile({ tile, mainPlace, onDataLoaded }: { tile: any; mainPlace: string; onDataLoaded?: (key: string, data: any) => void }) {
   const dcids = tile.statVars.map((sv: any) => sv.dcid);
-
   const { data, isLoading } = useQuery({
     queryKey: ['nl-chart', tile.type, dcids, mainPlace],
     queryFn: async () => {
-      const result = tile.type === 'HIGHLIGHT'
-        ? await getObservation(dcids, [mainPlace])
-        : await getTimeSeries(dcids, [mainPlace]);
-      // Report data back for AI summary
-      if (onDataLoaded) {
-        for (const sv of tile.statVars) {
-          onDataLoaded(`${tile.type}-${sv.dcid}-${mainPlace}`, result);
-        }
-      }
+      const result = tile.type === 'HIGHLIGHT' ? await getObservation(dcids, [mainPlace]) : await getTimeSeries(dcids, [mainPlace]);
+      if (onDataLoaded) { for (const sv of tile.statVars) { onDataLoaded(`${tile.type}-${sv.dcid}-${mainPlace}`, result); } }
       return result;
     },
     staleTime: 1000 * 60 * 30,
@@ -103,7 +92,6 @@ function ChartTile({ tile, mainPlace, onDataLoaded }: { tile: any; mainPlace: st
   if (tile.type === 'HIGHLIGHT') return <HighlightTile tile={tile} data={data} mainPlace={mainPlace} />;
   if (tile.type === 'LINE') return <LineTile tile={tile} data={data} mainPlace={mainPlace} />;
   if (tile.type === 'BAR') return <BarTile tile={tile} data={data} mainPlace={mainPlace} />;
-  if (tile.type === 'RANKING') return null;
   return null;
 }
 
@@ -176,13 +164,11 @@ function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: 
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
             <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} width={55} />
-            <Tooltip
-              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+            <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
               formatter={(value: number, name: string) => {
                 const svName = tile.statVars.find((sv: any) => sv.dcid === name)?.name || name;
                 return [formatValue(value), svName === 'value' ? tile.statVars[0]?.name : svName];
-              }}
-            />
+              }} />
             {tile.statVars.length === 1 ? (
               <Line type="monotone" dataKey="value" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
             ) : (
@@ -236,22 +222,42 @@ function BarTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: s
   );
 }
 
-// ─── AI Analysis Panel ──────────────────────────────────────────────
+// ─── AI Dynamic Analysis ────────────────────────────────────────────
 
-function AIInsightsPanel({ query, blocks, collectedData }: { query: string; blocks: any[]; collectedData: Record<string, any> }) {
-  const [aiContent, setAiContent] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
+interface AIAnalysis {
+  headline: string;
+  keyMetrics: { label: string; value: string; context: string; trend: 'up' | 'down' | 'stable' }[];
+  insights: { title: string; text: string; sentiment: 'positive' | 'negative' | 'neutral' | 'warning' }[];
+  comparisons: { metric: string; nigeria: string; other: string; otherName: string; nigeriaPercent: number; otherPercent: number }[];
+  policyNote: string;
+  nextQuestions: string[];
+}
+
+const sentimentConfig = {
+  positive: { icon: CheckCircle, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-950/30', border: 'border-green-200 dark:border-green-900/40' },
+  negative: { icon: XCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-900/40' },
+  warning: { icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-900/40' },
+  neutral: { icon: Info, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-900/40' },
+};
+
+const trendIcons = { up: TrendingUp, down: TrendingDown, stable: Minus };
+
+function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
+  query: string; blocks: any[]; collectedData: Record<string, any>; onQueryClick: (q: string) => void;
+}) {
+  const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [expanded, setExpanded] = useState(true);
+  const [error, setError] = useState('');
 
   const generateInsights = useCallback(async () => {
     const dataSummary = buildDataSummary(blocks, collectedData);
     if (!dataSummary.trim()) return;
 
-    setIsStreaming(true);
+    setIsLoading(true);
     setHasGenerated(true);
-    setAiContent('');
-    setExpanded(true);
+    setError('');
+    setAnalysis(null);
 
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-analyze`, {
@@ -263,105 +269,232 @@ function AIInsightsPanel({ query, blocks, collectedData }: { query: string; bloc
         body: JSON.stringify({ query, dataSummary }),
       });
 
-      if (!resp.ok || !resp.body) {
-        const errText = await resp.text();
-        console.error('AI analysis failed:', errText);
-        setAiContent('Unable to generate AI analysis at this time. Please try again.');
-        setIsStreaming(false);
-        return;
+      if (!resp.ok) {
+        throw new Error('Analysis failed');
       }
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let content = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let newlineIdx: number;
-        while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-          let line = buffer.slice(0, newlineIdx);
-          buffer = buffer.slice(newlineIdx + 1);
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              content += delta;
-              setAiContent(content);
-            }
-          } catch { /* partial json, wait for more */ }
-        }
-      }
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      setAnalysis(data);
     } catch (err) {
-      console.error('AI stream error:', err);
-      setAiContent('Unable to connect to AI analysis. Please try again.');
+      console.error('AI analysis error:', err);
+      setError('Unable to generate analysis. Please try again.');
     } finally {
-      setIsStreaming(false);
+      setIsLoading(false);
     }
   }, [query, blocks, collectedData]);
 
   const dataReady = Object.keys(collectedData).length > 0;
 
   return (
-    <div className="bg-gradient-to-br from-primary/5 to-accent/10 rounded-xl border border-primary/20 overflow-hidden">
-      <div className="p-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h4 className="font-serif text-lg text-foreground">AI Deep Analysis</h4>
-              <p className="text-xs text-muted-foreground">Powered by GPT-4o via Microsoft Azure</p>
-            </div>
+    <div className="space-y-1">
+      {/* Trigger */}
+      {!hasGenerated && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/10"
+        >
+          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4.5 h-4.5 text-primary" />
           </div>
-          <div className="flex items-center gap-2">
-            {hasGenerated && (
-              <button onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground p-1">
-                {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-            )}
-            <Button
-              onClick={generateInsights}
-              disabled={isStreaming || !dataReady}
-              size="sm"
-              className="gap-1.5"
-            >
-              {isStreaming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              {hasGenerated ? 'Regenerate' : 'Analyze Data'}
-            </Button>
-          </div>
-        </div>
+          <p className="text-sm text-muted-foreground flex-1">Get AI-powered insights, comparisons, and policy implications from this data.</p>
+          <Button onClick={generateInsights} disabled={!dataReady} size="sm" className="gap-1.5 shrink-0">
+            <Sparkles className="w-3.5 h-3.5" /> Analyze
+          </Button>
+        </motion.div>
+      )}
 
-        {!hasGenerated && dataReady && (
-          <p className="text-sm text-muted-foreground mt-3">
-            Click <strong>Analyze Data</strong> to get AI-powered insights, policy implications, and deeper analysis of the data above.
-          </p>
-        )}
-      </div>
-
-      {hasGenerated && expanded && (
-        <div className="px-5 pb-5">
-          <div className="bg-card rounded-lg p-5 border border-border prose prose-sm dark:prose-invert max-w-none prose-headings:font-serif prose-headings:text-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground">
-            {aiContent ? (
-              <ReactMarkdown>{aiContent}</ReactMarkdown>
-            ) : (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Analyzing data...</span>
-              </div>
-            )}
+      {/* Loading */}
+      {isLoading && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3 py-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            Analyzing data and generating insights...
           </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          </div>
+          <Skeleton className="h-32 rounded-xl" />
+        </motion.div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm flex items-center justify-between">
+          {error}
+          <Button onClick={generateInsights} size="sm" variant="outline">Retry</Button>
         </div>
       )}
+
+      {/* Results */}
+      <AnimatePresence>
+        {analysis && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-5"
+          >
+            {/* Headline */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="flex items-start gap-3"
+            >
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5 shrink-0">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-serif text-xl text-foreground leading-snug">{analysis.headline}</h4>
+                <button onClick={generateInsights} className="text-xs text-muted-foreground hover:text-primary mt-1 transition-colors">
+                  Regenerate analysis
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Key Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {analysis.keyMetrics.map((m, i) => {
+                const TrendIcon = trendIcons[m.trend] || Minus;
+                const trendColor = m.trend === 'up' ? 'text-green-600' : m.trend === 'down' ? 'text-red-600' : 'text-muted-foreground';
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: 0.15 + i * 0.08 }}
+                    className="bg-card rounded-xl p-4 border border-border hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{m.label}</span>
+                      <TrendIcon className={`w-3.5 h-3.5 ${trendColor}`} />
+                    </div>
+                    <p className="text-2xl font-bold text-foreground tracking-tight">{m.value}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{m.context}</p>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Insights */}
+            <div className="space-y-3">
+              {analysis.insights.map((insight, i) => {
+                const config = sentimentConfig[insight.sentiment] || sentimentConfig.neutral;
+                const Icon = config.icon;
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 + i * 0.1 }}
+                    className={`rounded-xl p-4 border ${config.bg} ${config.border}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Icon className={`w-4.5 h-4.5 mt-0.5 shrink-0 ${config.color}`} />
+                      <div>
+                        <h5 className="text-sm font-semibold text-foreground">{insight.title}</h5>
+                        <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{insight.text}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Comparisons */}
+            {analysis.comparisons.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="bg-card rounded-xl p-5 border border-border"
+              >
+                <h5 className="text-sm font-semibold text-foreground mb-4">How Nigeria Compares</h5>
+                <div className="space-y-5">
+                  {analysis.comparisons.map((comp, i) => (
+                    <div key={i} className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{comp.metric}</p>
+                      <div className="space-y-1.5">
+                        {/* Nigeria bar */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-medium text-foreground w-24 shrink-0">🇳🇬 Nigeria</span>
+                          <div className="flex-1 bg-muted rounded-full h-5 overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(comp.nigeriaPercent, 100)}%` }}
+                              transition={{ delay: 0.8 + i * 0.15, duration: 0.6, ease: "easeOut" }}
+                              className="h-full rounded-full bg-primary"
+                            />
+                          </div>
+                          <span className="text-xs font-bold text-foreground w-16 text-right">{comp.nigeria}</span>
+                        </div>
+                        {/* Other bar */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-medium text-muted-foreground w-24 shrink-0">{comp.otherName}</span>
+                          <div className="flex-1 bg-muted rounded-full h-5 overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(comp.otherPercent, 100)}%` }}
+                              transition={{ delay: 0.9 + i * 0.15, duration: 0.6, ease: "easeOut" }}
+                              className="h-full rounded-full bg-muted-foreground/30"
+                            />
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground w-16 text-right">{comp.other}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Policy Note */}
+            {analysis.policyNote && (
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 }}
+                className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl p-4 border border-primary/10"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center mt-0.5 shrink-0">
+                    <AlertTriangle className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-1">Policy Implication</h5>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{analysis.policyNote}</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Next Questions */}
+            {analysis.nextQuestions?.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.0 }}
+                className="space-y-2"
+              >
+                <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dig Deeper</h5>
+                <div className="flex flex-col gap-1.5">
+                  {analysis.nextQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onQueryClick(q)}
+                      className="flex items-center gap-2 text-sm text-left text-muted-foreground hover:text-foreground p-2.5 rounded-lg hover:bg-muted/50 transition-colors group"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 text-primary shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -433,10 +566,7 @@ const NLSearchPanel = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim()) {
-      setCollectedData({});
-      setSubmittedQuery(inputValue.trim());
-    }
+    if (inputValue.trim()) { setCollectedData({}); setSubmittedQuery(inputValue.trim()); }
   };
 
   const handleQueryClick = (q: string) => {
@@ -445,8 +575,8 @@ const NLSearchPanel = () => {
     setSubmittedQuery(q);
   };
 
-  const handleDataLoaded = useCallback((key: string, data: any) => {
-    setCollectedData(prev => ({ ...prev, [key]: data }));
+  const handleDataLoaded = useCallback((key: string, d: any) => {
+    setCollectedData(prev => ({ ...prev, [key]: d }));
   }, []);
 
   return (
@@ -469,15 +599,8 @@ const NLSearchPanel = () => {
         ))}
       </div>
 
-      {error && (
-        <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm">
-          Failed to query. Please try a different question.
-        </div>
-      )}
-
-      {hasFailure && !isLoading && (
-        <div className="bg-secondary/20 text-muted-foreground p-4 rounded-lg text-sm">{data.failure}</div>
-      )}
+      {error && <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm">Failed to query. Please try a different question.</div>}
+      {hasFailure && !isLoading && <div className="bg-secondary/20 text-muted-foreground p-4 rounded-lg text-sm">{data.failure}</div>}
 
       {!hasFailure && blocks.length > 0 && !isLoading && (
         <div className="space-y-8 animate-fade-in">
@@ -502,7 +625,7 @@ const NLSearchPanel = () => {
           ))}
 
           {/* AI Analysis */}
-          <AIInsightsPanel query={submittedQuery} blocks={blocks} collectedData={collectedData} />
+          <AIInsightsPanel query={submittedQuery} blocks={blocks} collectedData={collectedData} onQueryClick={handleQueryClick} />
 
           <RelatedTopics data={data} onTopicClick={handleQueryClick} />
         </div>
