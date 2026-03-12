@@ -67,11 +67,11 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Verify PHP relay config is present
-  if (!Deno.env.get('PHP_RELAY_API_KEY')) {
-    console.error('Missing PHP_RELAY_API_KEY')
+  // Verify Resend config is present
+  if (!Deno.env.get('RESEND_API_KEY')) {
+    console.error('Missing RESEND_API_KEY')
     return new Response(
-      JSON.stringify({ error: 'PHP relay not configured' }),
+      JSON.stringify({ error: 'Resend not configured' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
