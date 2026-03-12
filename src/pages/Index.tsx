@@ -428,6 +428,11 @@ const Index = () => {
               <span>Google Data Commons</span>
             </div>
           </section>
+
+          {/* Copyright */}
+          <footer className="py-6 text-center text-xs text-muted-foreground">
+            © {new Date().getFullYear()} Lantid Creative LTD. All rights reserved.
+          </footer>
         </>
       )}
 
