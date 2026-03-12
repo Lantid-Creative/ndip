@@ -77,7 +77,7 @@ function generateWelcomeHtml(firstName: string, topics: string[], preferredHour:
           <!-- CTA -->
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
             <tr><td style="background-color:#0a6b3d;border-radius:8px;">
-              <a href="https://ndip.lovable.app" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
+              <a href="https://ndip.ng" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
                 Explore the Platform →
               </a>
             </td></tr>
@@ -92,7 +92,7 @@ function generateWelcomeHtml(firstName: string, topics: string[], preferredHour:
         <tr><td style="padding:24px 28px;text-align:center;">
           <p style="margin:0;font-size:12px;color:#aaa;">
             © ${new Date().getFullYear()} Nigeria Data Intelligence Platform · 
-            <a href="https://ndip.lovable.app" style="color:#0a6b3d;text-decoration:none;">ndip.lovable.app</a>
+            <a href="https://ndip.ng" style="color:#0a6b3d;text-decoration:none;">ndip.ng</a>
           </p>
         </td></tr>
 
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
         from: `${Deno.env.get('SMTP_FROM_NAME') || 'NDIP Nigeria'} <${Deno.env.get('SMTP_FROM_EMAIL') || 'update@ndip.ng'}>`,
         subject: `Welcome to NDIP, ${firstName}! 🇳🇬 Your Daily Intelligence Report is ready`,
         html,
-        text: `Welcome ${firstName}! You've subscribed to the Nigeria Data Intelligence Platform Daily Report. Topics: ${topics.join(', ')}. Delivery: daily. Visit https://ndip.lovable.app to explore.`,
+        text: `Welcome ${firstName}! You've subscribed to the Nigeria Data Intelligence Platform Daily Report. Topics: ${topics.join(', ')}. Delivery: daily. Visit https://ndip.ng to explore.`,
         purpose: 'transactional',
         label: 'welcome_email',
         queued_at: new Date().toISOString(),
