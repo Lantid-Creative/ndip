@@ -224,7 +224,7 @@ function buildPersonalizedReportHTML(
 
     <p style="margin-top: 24px; font-size: 13px; color: #999; text-align: center;">
       Data sourced from Google Data Commons (World Bank, UN, WHO).<br/>
-      <a href="${PLATFORM_URL}/manage-preferences?email=${encodeURIComponent(email)}" style="color: #0A6847;">Manage preferences</a> · <a href="${PLATFORM_URL}/manage-preferences?email=${encodeURIComponent(email)}&unsubscribe=true" style="color: #0A6847;">Unsubscribe</a>
+      <a href="${PLATFORM_URL}/manage-preferences?email=${encodeURIComponent(email)}" style="color: #0A6847;">Manage preferences</a> · <a href="${PLATFORM_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="color: #0A6847;">Unsubscribe</a>
     </p>
     
     <p style="margin-top: 16px; font-size: 12px; color: #aaa; text-align: center;">
