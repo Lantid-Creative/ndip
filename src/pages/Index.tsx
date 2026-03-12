@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp } from "lucide-react";
+import { ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import NLSearchPanel from "@/components/NLSearchPanel";
+import SearchBar from "@/components/SearchBar";
+import ShareExport from "@/components/ShareExport";
 
 const NEWSLETTER_TOPICS = [
   { id: "economics", label: "Economics", description: "GDP, trade, inflation" },
@@ -27,12 +31,12 @@ const TIME_OPTIONS = [
 ];
 
 const TOPICS = [
-  { label: "Economics", query: "Economy in Nigeria" },
-  { label: "Demographics", query: "Demographics of Nigeria" },
-  { label: "Health", query: "Health in Nigeria" },
-  { label: "Sustainability", query: "Sustainability in Nigeria" },
-  { label: "Education", query: "Education in Nigeria" },
-  { label: "Agriculture", query: "Agriculture in Nigeria" },
+  { label: "Economics", query: "Economy in Nigeria", icon: "📊" },
+  { label: "Demographics", query: "Demographics of Nigeria", icon: "👥" },
+  { label: "Health", query: "Health in Nigeria", icon: "🏥" },
+  { label: "Sustainability", query: "Sustainability in Nigeria", icon: "🌱" },
+  { label: "Education", query: "Education in Nigeria", icon: "📚" },
+  { label: "Agriculture", query: "Agriculture in Nigeria", icon: "🌾" },
 ];
 
 const SAMPLE_QUESTIONS = [
@@ -65,7 +69,7 @@ function BackToTopButton() {
   return (
     <button
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      className="fixed bottom-6 right-6 z-50 p-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
+      className="fixed bottom-6 right-6 z-50 p-3 rounded-full bg-primary text-primary-foreground shadow-elevated hover:opacity-90 transition-opacity"
       aria-label="Back to top"
     >
       <ArrowUp size={20} />
@@ -112,7 +116,6 @@ function SubscribeSection() {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Insert subscriber (or get existing)
     const { data: existing } = await supabase
       .from('subscribers')
       .select('id')
@@ -123,7 +126,6 @@ function SubscribeSection() {
 
     if (existing) {
       subscriberId = existing.id;
-      // Update name and preferences
       await supabase
         .from('subscribers')
         .update({ first_name: firstName.trim(), last_name: lastName.trim(), preferred_hour: preferredHour })
@@ -148,7 +150,6 @@ function SubscribeSection() {
       subscriberId = newSub.id;
     }
 
-    // Save topic preferences
     const { error: prefError } = await supabase
       .from('subscriber_preferences')
       .upsert(
@@ -334,8 +335,10 @@ function SubscribeSection() {
 }
 
 const Index = () => {
-  const [query, setQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQ = searchParams.get("q") || "";
+  const [query, setQuery] = useState(initialQ);
+  const [submittedQuery, setSubmittedQuery] = useState(initialQ);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = (q: string) => {
@@ -343,91 +346,129 @@ const Index = () => {
     if (!trimmed) return;
     setQuery(trimmed);
     setSubmittedQuery(trimmed);
+    setSearchParams({ q: trimmed });
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSearch(query);
   };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-background border-b border-border">
-        <div className="container mx-auto px-4 flex items-center h-14 gap-4">
-          <div className="flex items-center gap-2 shrink-0">
+      <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
+        <div className="container mx-auto px-4 flex items-center h-14 gap-3 md:gap-4">
+          <a href="/" className="flex items-center gap-2 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-[8px]">NDIP</span>
+              <BarChart3 className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-serif text-lg text-foreground">Nigeria Data Intelligence Platform</span>
-          </div>
+            <span className="font-serif text-lg text-foreground hidden sm:block">NDIP</span>
+          </a>
 
-          <form onSubmit={handleSubmit} className="flex-1 max-w-2xl">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Enter a question to explore"
-                className="w-full pl-10 pr-10 h-10 rounded-full border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
-              {query.trim() && (
-                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-primary hover:text-primary/80">
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </form>
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            onSearch={handleSearch}
+            variant="nav"
+            className="flex-1 max-w-2xl"
+          />
+
+          {submittedQuery && (
+            <ShareExport query={submittedQuery} />
+          )}
         </div>
       </nav>
 
       {/* Hero + Topics (only shown when no results) */}
       {!submittedQuery && (
         <>
-          <section className="bg-muted/40 py-16 md:py-24">
-            <div className="container mx-auto px-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
-                <h1 className="text-3xl md:text-4xl lg:text-[2.75rem] text-foreground leading-tight font-normal">
-                  Nigeria Data Intelligence Platform brings together Nigeria's public data, making it simple to explore
-                </h1>
-                <div>
-                  <h2 className="text-base font-semibold text-foreground mb-4">Topics to explore</h2>
-                  <div className="flex flex-wrap gap-2.5">
-                    {TOPICS.map((t) => (
-                      <button
-                        key={t.label}
-                        onClick={() => handleSearch(t.query)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-border bg-background text-sm text-foreground hover:bg-muted transition-colors"
-                      >
-                        <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
-                        {t.label}
-                      </button>
-                    ))}
+          <section className="relative overflow-hidden">
+            {/* Subtle background pattern */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] via-transparent to-secondary/[0.05]" />
+            <div className="absolute top-20 -right-20 w-72 h-72 rounded-full bg-primary/[0.04] blur-3xl" />
+            <div className="absolute -bottom-10 -left-20 w-60 h-60 rounded-full bg-secondary/[0.06] blur-3xl" />
+
+            <div className="relative container mx-auto px-4 py-16 md:py-24 lg:py-28">
+              <div className="max-w-3xl mx-auto text-center mb-10 md:mb-14">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-medium px-3 py-1.5 rounded-full mb-6">
+                    <BarChart3 className="w-3 h-3" />
+                    Powered by Google Data Commons
                   </div>
-                </div>
+                  <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] text-foreground leading-[1.15] font-normal text-balance mb-5">
+                    Nigeria's public data,{" "}
+                    <span className="text-primary">made simple</span>{" "}
+                    to explore
+                  </h1>
+                  <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed mb-8">
+                    Ask questions in plain language and get instant charts, data, and AI-powered analysis about Nigeria's economy, health, demographics, and more.
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.15 }}
+                >
+                  <SearchBar
+                    value={query}
+                    onChange={setQuery}
+                    onSearch={handleSearch}
+                    variant="hero"
+                    className="max-w-xl mx-auto"
+                  />
+                </motion.div>
               </div>
+
+              {/* Topics */}
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.25 }}
+                className="max-w-2xl mx-auto"
+              >
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-center mb-3">Explore by topic</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {TOPICS.map((t, i) => (
+                    <motion.button
+                      key={t.label}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.3 + i * 0.05 }}
+                      onClick={() => handleSearch(t.query)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-border bg-card text-sm text-foreground hover:bg-primary/5 hover:border-primary/20 hover:text-primary transition-all active:scale-95"
+                    >
+                      <span>{t.icon}</span>
+                      {t.label}
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
             </div>
           </section>
 
           {/* Sample Questions */}
-          <section className="py-12 md:py-16">
+          <section className="py-12 md:py-16 border-t border-border">
             <div className="container mx-auto px-4">
               <h2 className="text-lg font-semibold text-foreground mb-6">Sample questions</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {SAMPLE_QUESTIONS.map((sq) => (
-                  <button
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                {SAMPLE_QUESTIONS.map((sq, i) => (
+                  <motion.button
                     key={sq.question}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + i * 0.05 }}
                     onClick={() => handleSearch(sq.question)}
-                    className="text-left p-5 rounded-xl border border-border bg-card hover:shadow-md transition-shadow group"
+                    className="text-left p-4 md:p-5 rounded-xl border border-border bg-card hover:shadow-card hover:border-primary/10 transition-all group active:scale-[0.98]"
                   >
-                    <p className={`text-base font-medium leading-snug mb-4 ${CATEGORY_COLORS[sq.category] || "text-primary"}`}>
+                    <p className={`text-sm md:text-base font-medium leading-snug mb-3 group-hover:text-primary transition-colors ${CATEGORY_COLORS[sq.category] || "text-primary"}`}>
                       {sq.question}
                     </p>
                     <span className="text-[11px] font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
                       {sq.category}
                     </span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
@@ -438,7 +479,7 @@ const Index = () => {
 
           {/* Footer sources */}
           <section className="border-t border-border py-8">
-            <div className="container mx-auto px-4 flex items-center gap-3 justify-center text-xs text-muted-foreground">
+            <div className="container mx-auto px-4 flex flex-wrap items-center gap-x-3 gap-y-1 justify-center text-xs text-muted-foreground">
               <span>Sources: World Bank</span>
               <span className="w-1 h-1 rounded-full bg-border" />
               <span>UN</span>
@@ -460,8 +501,8 @@ const Index = () => {
 
       {/* Search Results */}
       {submittedQuery && (
-        <main ref={resultsRef} className="container mx-auto px-4 py-8">
-          <NLSearchPanel initialQuery={submittedQuery} onQueryChange={(q) => { setQuery(q); setSubmittedQuery(q); }} />
+        <main ref={resultsRef} className="container mx-auto px-4 py-6 md:py-8">
+          <NLSearchPanel initialQuery={submittedQuery} onQueryChange={(q) => { setQuery(q); setSubmittedQuery(q); setSearchParams({ q }); }} />
         </main>
       )}
 
