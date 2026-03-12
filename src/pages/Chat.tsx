@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react"
-import { Send, Loader2, ArrowLeft, Sparkles, BarChart3, Trash2 } from "lucide-react"
+import { useState, useRef, useEffect, useMemo } from "react"
+import { Send, Loader2, Sparkles, BarChart3, Trash2, TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react"
 import { Link } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import ReactMarkdown from "react-markdown"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 type Message = { role: "user" | "assistant"; content: string }
 
@@ -78,7 +79,6 @@ async function streamChat({
     }
   }
 
-  // Final flush
   if (textBuffer.trim()) {
     for (let raw of textBuffer.split("\n")) {
       if (!raw) continue
@@ -96,6 +96,161 @@ async function streamChat({
   }
 
   onDone()
+}
+
+// ── Rich content parsing ──
+// Detect stat patterns like "**GDP Per Capita**: $2,184 (2022)" or "Population: 218.5 million"
+type ParsedBlock =
+  | { type: "stat-card"; label: string; value: string; date?: string; trend?: "up" | "down" | "neutral" }
+  | { type: "markdown"; content: string }
+
+function detectTrend(text: string): "up" | "down" | "neutral" | undefined {
+  const lower = text.toLowerCase()
+  if (/increas|grow|ris|improv|gain|surge|expand|climb/.test(lower)) return "up"
+  if (/declin|drop|fall|shrink|decreas|worsen|contract|reduc/.test(lower)) return "down"
+  if (/stable|flat|stagnant|unchanged/.test(lower)) return "neutral"
+  return undefined
+}
+
+function parseAssistantContent(content: string): ParsedBlock[] {
+  const blocks: ParsedBlock[] = []
+  const lines = content.split("\n")
+  let markdownBuffer: string[] = []
+
+  const flushMarkdown = () => {
+    if (markdownBuffer.length > 0) {
+      blocks.push({ type: "markdown", content: markdownBuffer.join("\n") })
+      markdownBuffer = []
+    }
+  }
+
+  // Pattern: **Label**: Value or - **Label**: Value  
+  const statPattern = /^[-*•]?\s*\*\*([^*]+)\*\*\s*[:：]\s*(.+)$/
+  // Pattern for table-like "| Label | Value |"
+  const tableStatPattern = /^\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|?\s*$/
+
+  let pendingStats: ParsedBlock[] = []
+
+  for (const line of lines) {
+    const statMatch = line.trim().match(statPattern)
+    const tableMatch = !statMatch && line.trim().match(tableStatPattern)
+
+    if (statMatch) {
+      const label = statMatch[1].trim()
+      const rawValue = statMatch[2].trim()
+      // Extract date from parenthetical
+      const dateMatch = rawValue.match(/\((?:as of\s*)?(\d{4})\)/)
+      const value = rawValue.replace(/\((?:as of\s*)?\d{4}\)/, "").trim()
+      
+      // Only treat as stat card if value looks like a number/metric
+      if (/[\d$%₦]/.test(value) && label.length < 60) {
+        flushMarkdown()
+        pendingStats.push({
+          type: "stat-card",
+          label,
+          value,
+          date: dateMatch?.[1],
+          trend: detectTrend(rawValue),
+        })
+        continue
+      }
+    }
+
+    if (tableMatch) {
+      const label = tableMatch[1].trim()
+      const value = tableMatch[2].trim()
+      if (/[\d$%₦]/.test(value) && !label.startsWith("---") && label.length < 60) {
+        flushMarkdown()
+        pendingStats.push({
+          type: "stat-card",
+          label,
+          value,
+          trend: detectTrend(value),
+        })
+        continue
+      }
+    }
+
+    // If we had pending stat cards and now hit a non-stat line, flush them
+    if (pendingStats.length > 0) {
+      blocks.push(...pendingStats)
+      pendingStats = []
+    }
+
+    markdownBuffer.push(line)
+  }
+
+  if (pendingStats.length > 0) {
+    blocks.push(...pendingStats)
+  }
+  flushMarkdown()
+
+  return blocks
+}
+
+function StatCard({ label, value, date, trend }: { label: string; value: string; date?: string; trend?: "up" | "down" | "neutral" }) {
+  const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus
+  const trendColor = trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-500" : "text-muted-foreground"
+
+  return (
+    <Card className="border-border/60 bg-card shadow-sm hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">{label}</p>
+            <p className="text-lg font-bold text-foreground mt-1 leading-tight">{value}</p>
+            {date && <p className="text-[10px] text-muted-foreground mt-0.5">As of {date}</p>}
+          </div>
+          {trend && (
+            <div className={`shrink-0 p-1.5 rounded-md bg-muted/50 ${trendColor}`}>
+              <TrendIcon className="w-3.5 h-3.5" />
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function RichAssistantMessage({ content }: { content: string }) {
+  const blocks = useMemo(() => parseAssistantContent(content), [content])
+
+  // Group consecutive stat cards
+  const rendered: React.ReactNode[] = []
+  let i = 0
+  while (i < blocks.length) {
+    const block = blocks[i]
+    if (block.type === "stat-card") {
+      const statGroup: (typeof blocks[number] & { type: "stat-card" })[] = []
+      while (i < blocks.length && blocks[i].type === "stat-card") {
+        statGroup.push(blocks[i] as any)
+        i++
+      }
+      rendered.push(
+        <div key={`stats-${i}`} className="grid grid-cols-2 lg:grid-cols-3 gap-3 my-4">
+          {statGroup.map((s, j) => (
+            <motion.div
+              key={j}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: j * 0.05 }}
+            >
+              <StatCard label={s.label} value={s.value} date={s.date} trend={s.trend} />
+            </motion.div>
+          ))}
+        </div>
+      )
+    } else {
+      rendered.push(
+        <div key={`md-${i}`} className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary prose-li:text-foreground">
+          <ReactMarkdown>{block.content}</ReactMarkdown>
+        </div>
+      )
+      i++
+    }
+  }
+
+  return <>{rendered}</>
 }
 
 export default function Chat() {
@@ -163,23 +318,21 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-sm font-semibold text-foreground">NDIP Intelligence</h1>
-                <p className="text-xs text-muted-foreground">AI-powered Nigeria data analysis</p>
-              </div>
+      {/* Navbar */}
+      <header className="border-b border-border bg-background/95 backdrop-blur-md sticky top-0 z-50">
+        <div className="container mx-auto px-4 flex items-center h-14 gap-3 md:gap-4">
+          <Link to="/" className="flex items-center gap-2 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <BarChart3 className="w-4 h-4 text-primary-foreground" />
             </div>
-          </div>
+            <span className="font-serif text-foreground whitespace-nowrap">
+              <span className="text-sm md:hidden">NDIP</span>
+              <span className="hidden md:inline text-lg">Nigeria Data Intelligence Platform</span>
+            </span>
+          </Link>
+
+          <div className="flex-1" />
+
           <div className="flex items-center gap-2">
             {messages.length > 0 && (
               <button
@@ -190,6 +343,11 @@ export default function Chat() {
                 <Trash2 className="w-4 h-4" />
               </button>
             )}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">NDIP Intelligence</span>
+              <span className="sm:hidden">AI</span>
+            </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
               <BarChart3 className="w-3 h-3" />
               <span>Live Data</span>
@@ -248,16 +406,14 @@ export default function Chat() {
                         {msg.content}
                       </div>
                     ) : (
-                      <div className="max-w-[90%] w-full">
+                      <div className="max-w-[95%] w-full">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
                             <Sparkles className="w-3 h-3 text-primary" />
                           </div>
                           <span className="text-xs font-medium text-muted-foreground">NDIP Intelligence</span>
                         </div>
-                        <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        </div>
+                        <RichAssistantMessage content={msg.content} />
                       </div>
                     )}
                   </motion.div>

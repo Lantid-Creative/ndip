@@ -383,9 +383,26 @@ const Index = () => {
             className="flex-1 max-w-2xl"
           />
 
-          {submittedQuery && (
-            <ShareExport query={submittedQuery} />
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {submittedQuery && (
+              <ShareExport query={submittedQuery} />
+            )}
+            <Link
+              to="/chat"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Chat with NDIP Intelligence</span>
+              <span className="md:hidden">AI Chat</span>
+            </Link>
+            <Link
+              to="/chat"
+              className="sm:hidden p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              title="Chat with NDIP Intelligence"
+            >
+              <Sparkles className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </nav>
 
