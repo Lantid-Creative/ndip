@@ -388,6 +388,14 @@ const Index = () => {
               <ShareExport query={submittedQuery} />
             )}
             <Link
+              to="/download"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Download Data</span>
+              <span className="md:hidden">Data</span>
+            </Link>
+            <Link
               to="/chat"
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
             >
