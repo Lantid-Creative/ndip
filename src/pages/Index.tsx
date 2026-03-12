@@ -461,7 +461,7 @@ const Index = () => {
       {/* Search Results */}
       {submittedQuery && (
         <main ref={resultsRef} className="container mx-auto px-4 py-8">
-          <NLSearchPanel initialQuery={submittedQuery} onQueryChange={setSubmittedQuery} />
+          <NLSearchPanel initialQuery={submittedQuery} onQueryChange={(q) => { setQuery(q); setSubmittedQuery(q); }} />
         </main>
       )}
 
