@@ -338,7 +338,7 @@ const Index = () => {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-[10px]">NIP</span>
             </div>
-            <span className="font-serif text-lg text-foreground">Nigeria Intelligence Platform</span>
+            <span className="font-serif text-lg text-foreground">Nigeria Data Intelligence Platform</span>
           </div>
 
           <form onSubmit={handleSubmit} className="flex-1 max-w-2xl">
