@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound.tsx";
 import ManagePreferences from "./pages/ManagePreferences.tsx";
 import Chat from "./pages/Chat.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
+import Download from "./pages/Download.tsx";
 
 const queryClient = new QueryClient();
 
