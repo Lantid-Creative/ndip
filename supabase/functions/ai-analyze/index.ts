@@ -59,8 +59,6 @@ ${dataSummary}
 
 Analyze this data deeply for Nigeria. Use actual numbers.`;
 
-    const endpoint = AZURE_ENDPOINT.endsWith('/') ? AZURE_ENDPOINT.slice(0, -1) : AZURE_ENDPOINT;
-
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
