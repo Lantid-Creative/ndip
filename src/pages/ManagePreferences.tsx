@@ -236,7 +236,7 @@ export default function ManagePreferences() {
             </p>
 
             {/* Name fields */}
-            <div className="flex gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
               <div className="flex-1">
                 <label className="text-xs text-muted-foreground mb-1 block">First name</label>
                 <input
