@@ -442,6 +442,9 @@ const Index = () => {
           <NLSearchPanel initialQuery={submittedQuery} onQueryChange={setSubmittedQuery} />
         </main>
       )}
+
+      {/* Back to Top */}
+      <BackToTopButton />
     </div>
   );
 };
