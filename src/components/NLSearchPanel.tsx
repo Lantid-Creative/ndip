@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Loader2, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info, XCircle, ChevronRight } from "lucide-react";
+import { Loader2, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info, XCircle, ChevronRight, Table, BarChart3, Download, ZoomIn, ArrowUpRight, ArrowDownRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNLQuery } from "@/hooks/useDataCommons";
 import { getTimeSeries, getObservation } from "@/lib/datacommons";
 import { parseTimeSeries, parseLatestValue } from "@/hooks/useDataCommons";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, Area, AreaChart, ReferenceLine, Brush } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -65,6 +65,78 @@ function buildDataSummary(blocks: any[], collectedData: Record<string, any>): st
   return lines.join('\n');
 }
 
+// ─── Percentage change helper ───────────────────────────────────────
+
+function calcChange(series: { date: string; value: number }[]): { pct: number; direction: 'up' | 'down' | 'stable'; prevValue: number; prevDate: string } | null {
+  if (series.length < 2) return null;
+  const latest = series[series.length - 1];
+  const prev = series[series.length - 2];
+  if (prev.value === 0) return null;
+  const pct = ((latest.value - prev.value) / Math.abs(prev.value)) * 100;
+  return {
+    pct,
+    direction: Math.abs(pct) < 0.5 ? 'stable' : pct > 0 ? 'up' : 'down',
+    prevValue: prev.value,
+    prevDate: prev.date,
+  };
+}
+
+// ─── Data Table component ───────────────────────────────────────────
+
+function DataTable({ series, title }: { series: { date: string; value: number }[]; title: string }) {
+  const handleDownload = () => {
+    const csv = ['Date,Value', ...series.map(r => `${r.date},${r.value}`)].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-muted-foreground">{series.length} data points</span>
+        <Button variant="ghost" size="sm" onClick={handleDownload} className="text-xs gap-1.5 h-7">
+          <Download className="w-3 h-3" /> CSV
+        </Button>
+      </div>
+      <div className="max-h-60 overflow-y-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 sticky top-0">
+            <tr>
+              <th className="text-left py-2 px-3 text-xs font-medium text-muted-foreground">Date</th>
+              <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground">Value</th>
+              <th className="text-right py-2 px-3 text-xs font-medium text-muted-foreground">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...series].reverse().map((row, i, arr) => {
+              const prev = arr[i + 1];
+              const change = prev ? ((row.value - prev.value) / Math.abs(prev.value)) * 100 : null;
+              return (
+                <tr key={row.date} className="border-t border-border hover:bg-muted/30 transition-colors">
+                  <td className="py-1.5 px-3 text-foreground">{row.date}</td>
+                  <td className="py-1.5 px-3 text-right font-mono text-foreground">{formatValue(row.value)}</td>
+                  <td className="py-1.5 px-3 text-right">
+                    {change !== null && (
+                      <span className={`text-xs font-medium ${change > 0 ? 'text-green-600' : change < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                        {change > 0 ? '+' : ''}{change.toFixed(1)}%
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Chart tiles ────────────────────────────────────────────────────
 
 function ChartTile({ tile, mainPlace, onDataLoaded }: { tile: any; mainPlace: string; onDataLoaded?: (key: string, data: any) => void }) {
@@ -116,7 +188,11 @@ function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPl
   if (values.length === 0) return null;
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-6 flex flex-col justify-center border border-blue-100 dark:border-blue-900/40">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-primary/5 rounded-xl p-6 flex flex-col justify-center border border-primary/10"
+    >
       {values.map((v: any, i: number) => (
         <div key={i}>
           <p className="text-4xl font-bold text-foreground tracking-tight">{formatHighlightValue(v.value)}</p>
@@ -125,7 +201,7 @@ function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPl
           <SourceAttribution data={data} dcid={v.dcid} mainPlace={mainPlace} />
         </div>
       ))}
-    </div>
+    </motion.div>
   );
 }
 
@@ -137,14 +213,25 @@ function ChartSummary({ tile, data, mainPlace }: { tile: any; data: any; mainPla
     if (series.length === 0) return null;
     const latest = series[series.length - 1];
     const source = getSourceInfo(data, sv.dcid, mainPlace);
-    return { value: latest.value, date: latest.date, name: sv.name, dcid: sv.dcid, source };
+    const change = calcChange(series);
+    return { value: latest.value, date: latest.date, name: sv.name, dcid: sv.dcid, source, change };
   }, [data, tile, mainPlace]);
 
   if (!summary) return null;
 
+  const ChangeIcon = summary.change?.direction === 'up' ? ArrowUpRight : summary.change?.direction === 'down' ? ArrowDownRight : Minus;
+  const changeColor = summary.change?.direction === 'up' ? 'text-green-600' : summary.change?.direction === 'down' ? 'text-red-600' : 'text-muted-foreground';
+
   return (
     <div className="flex flex-col justify-center p-5">
       <p className="text-4xl font-bold text-foreground tracking-tight">{formatHighlightValue(summary.value)}</p>
+      {summary.change && (
+        <div className={`flex items-center gap-1 mt-1.5 ${changeColor}`}>
+          <ChangeIcon className="w-3.5 h-3.5" />
+          <span className="text-sm font-semibold">{summary.change.pct > 0 ? '+' : ''}{summary.change.pct.toFixed(1)}%</span>
+          <span className="text-xs text-muted-foreground ml-1">from {summary.change.prevDate}</span>
+        </div>
+      )}
       {getUnit(summary.name) && <p className="text-sm text-muted-foreground mt-1">{getUnit(summary.name)}</p>}
       <p className="text-sm font-medium text-foreground mt-3">{tile.title || summary.name} in Nigeria ({summary.date})</p>
       {summary.source?.domain && (
@@ -157,6 +244,8 @@ function ChartSummary({ tile, data, mainPlace }: { tile: any; data: any; mainPla
 }
 
 function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: string }) {
+  const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
+
   const chartData = useMemo(() => {
     if (!data) return [];
     if (tile.statVars.length === 1) return parseTimeSeries(data, tile.statVars[0].dcid, mainPlace);
@@ -172,40 +261,94 @@ function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: 
 
   if (chartData.length === 0) return <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No data available</div>;
 
+  // Calculate average for reference line
+  const avg = tile.statVars.length === 1
+    ? chartData.reduce((s: number, d: any) => s + d.value, 0) / chartData.length
+    : null;
+
   return (
     <>
       <div className="bg-card rounded-xl p-5 border border-border">
-        <h5 className="text-sm font-semibold text-foreground mb-1">{tile.title}</h5>
-        <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
-        <div className="mt-3">
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} width={55} />
-              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                formatter={(value: number, name: string) => {
-                  const svName = tile.statVars.find((sv: any) => sv.dcid === name)?.name || name;
-                  return [formatValue(value), svName === 'value' ? tile.statVars[0]?.name : svName];
-                }} />
-              {tile.statVars.length === 1 ? (
-                <Line type="monotone" dataKey="value" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-              ) : (
-                tile.statVars.map((sv: any, i: number) => (
-                  <Line key={sv.dcid} type="monotone" dataKey={sv.dcid} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} name={sv.dcid} activeDot={{ r: 4 }} />
-                ))
-              )}
-            </LineChart>
-          </ResponsiveContainer>
-          <div className="flex gap-4 mt-2 px-2">
-            {tile.statVars.map((sv: any, i: number) => (
-              <div key={sv.dcid} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                {sv.name}
-              </div>
-            ))}
+        <div className="flex items-center justify-between mb-1">
+          <h5 className="text-sm font-semibold text-foreground">{tile.title}</h5>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setViewMode('chart')}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === 'chart' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Chart view"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-md transition-colors ${viewMode === 'table' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              title="Table view"
+            >
+              <Table className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
+        <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
+
+        <AnimatePresence mode="wait">
+          {viewMode === 'chart' ? (
+            <motion.div key="chart" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-3">
+              <ResponsiveContainer width="100%" height={240}>
+                {tile.statVars.length === 1 ? (
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id={`grad-${tile.statVars[0]?.dcid}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={CHART_COLORS[0]} stopOpacity={0.15} />
+                        <stop offset="100%" stopColor={CHART_COLORS[0]} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} width={55} />
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                      formatter={(value: number) => [formatValue(value), tile.statVars[0]?.name]} />
+                    {avg !== null && <ReferenceLine y={avg} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: `avg: ${formatAxisValue(avg)}`, position: 'right', fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />}
+                    <Area type="monotone" dataKey="value" stroke={CHART_COLORS[0]} strokeWidth={2} fill={`url(#grad-${tile.statVars[0]?.dcid})`} activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }} />
+                    {chartData.length > 20 && <Brush dataKey="date" height={20} stroke="hsl(var(--border))" travellerWidth={8} />}
+                  </AreaChart>
+                ) : (
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} width={55} />
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                      formatter={(value: number, name: string) => {
+                        const svName = tile.statVars.find((sv: any) => sv.dcid === name)?.name || name;
+                        return [formatValue(value), svName];
+                      }} />
+                    {tile.statVars.map((sv: any, i: number) => (
+                      <Line key={sv.dcid} type="monotone" dataKey={sv.dcid} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} name={sv.dcid} activeDot={{ r: 4 }} />
+                    ))}
+                    {chartData.length > 20 && <Brush dataKey="date" height={20} stroke="hsl(var(--border))" travellerWidth={8} />}
+                  </LineChart>
+                )}
+              </ResponsiveContainer>
+              <div className="flex gap-4 mt-2 px-2">
+                {tile.statVars.map((sv: any, i: number) => (
+                  <div key={sv.dcid} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                    {sv.name}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-3">
+              <DataTable
+                series={tile.statVars.length === 1
+                  ? chartData
+                  : chartData.map((d: any) => ({ date: d.date, value: d[tile.statVars[0]?.dcid] || 0 }))
+                }
+                title={tile.title}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       <ChartSummary tile={tile} data={data} mainPlace={mainPlace} />
     </>
@@ -213,6 +356,8 @@ function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: 
 }
 
 function BarTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: string }) {
+  const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
+
   const chartData = useMemo(() => {
     if (!data) return [];
     return tile.statVars.map((sv: any) => {
@@ -225,21 +370,40 @@ function BarTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: s
   return (
     <>
       <div className="bg-card rounded-xl p-5 border border-border">
-        <h5 className="text-sm font-semibold text-foreground mb-1">{tile.title}</h5>
-        <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
-        <div className="mt-3">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} />
-              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(v: number) => [formatValue(v), '']} />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={36}>
-                {chartData.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="flex items-center justify-between mb-1">
+          <h5 className="text-sm font-semibold text-foreground">{tile.title}</h5>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setViewMode('chart')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'chart' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`} title="Chart view">
+              <BarChart3 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'table' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`} title="Table view">
+              <Table className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
+        <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
+
+        <AnimatePresence mode="wait">
+          {viewMode === 'chart' ? (
+            <motion.div key="chart" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-3">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(v: number) => [formatValue(v), '']} />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={36}>
+                    {chartData.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </motion.div>
+          ) : (
+            <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-3">
+              <DataTable series={chartData.map(d => ({ date: d.name, value: d.value }))} title={tile.title} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       <ChartSummary tile={tile} data={data} mainPlace={mainPlace} />
     </>
@@ -438,7 +602,6 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
                     <div key={i} className="space-y-2">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{comp.metric}</p>
                       <div className="space-y-1.5">
-                        {/* Nigeria bar */}
                         <div className="flex items-center gap-3">
                           <span className="text-xs font-medium text-foreground w-24 shrink-0">🇳🇬 Nigeria</span>
                           <div className="flex-1 bg-muted rounded-full h-5 overflow-hidden">
@@ -451,7 +614,6 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
                           </div>
                           <span className="text-xs font-bold text-foreground w-16 text-right">{comp.nigeria}</span>
                         </div>
-                        {/* Other bar */}
                         <div className="flex items-center gap-3">
                           <span className="text-xs font-medium text-muted-foreground w-24 shrink-0">{comp.otherName}</span>
                           <div className="flex-1 bg-muted rounded-full h-5 overflow-hidden">
@@ -578,6 +740,47 @@ function getUnit(name: string): string | null {
   return null;
 }
 
+// ─── Empty state ────────────────────────────────────────────────────
+
+const SUGGESTED_QUERIES = [
+  "What is the GDP of Nigeria?",
+  "Population growth in Nigeria",
+  "Life expectancy in Nigeria",
+  "Unemployment rate in Nigeria",
+  "CO2 emissions per capita in Nigeria",
+  "Infant mortality rate in Nigeria",
+];
+
+function EmptyResultState({ query, onQueryClick }: { query: string; onQueryClick: (q: string) => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-center py-12 max-w-lg mx-auto"
+    >
+      <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+        <Search className="w-6 h-6 text-muted-foreground" />
+      </div>
+      <h3 className="text-lg font-semibold text-foreground mb-2">No results found</h3>
+      <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+        We couldn't find data matching "<span className="font-medium text-foreground">{query}</span>". 
+        Try rephrasing your question or explore one of these topics:
+      </p>
+      <div className="flex flex-wrap gap-2 justify-center">
+        {SUGGESTED_QUERIES.map(q => (
+          <button
+            key={q}
+            onClick={() => onQueryClick(q)}
+            className="text-xs px-3.5 py-2 rounded-full border border-border bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all"
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Related topics ─────────────────────────────────────────────────
 
 function RelatedTopics({ data, onTopicClick }: { data: any; onTopicClick: (q: string) => void }) {
@@ -620,6 +823,23 @@ const NLSearchPanel = ({ initialQuery, onQueryChange }: NLSearchPanelProps) => {
   const blocks = useMemo(() => (data ? extractBlocks(data) : []), [data]);
   const hasFailure = data?.failure;
 
+  // Separate highlight blocks from chart blocks for reordering
+  const { highlightBlocks, chartBlocks } = useMemo(() => {
+    const hBlocks: any[] = [];
+    const cBlocks: any[] = [];
+    for (const block of blocks) {
+      const highlightTiles = block.tiles.filter((t: any) => t.type === 'HIGHLIGHT');
+      const chartTiles = block.tiles.filter((t: any) => t.type !== 'HIGHLIGHT');
+      if (highlightTiles.length > 0) {
+        hBlocks.push({ ...block, tiles: highlightTiles });
+      }
+      if (chartTiles.length > 0) {
+        cBlocks.push({ ...block, tiles: chartTiles });
+      }
+    }
+    return { highlightBlocks: hBlocks, chartBlocks: cBlocks };
+  }, [blocks]);
+
   const handleQueryClick = (q: string) => {
     setCollectedData({});
     setSubmittedQuery(q);
@@ -633,23 +853,59 @@ const NLSearchPanel = ({ initialQuery, onQueryChange }: NLSearchPanelProps) => {
   return (
     <div className="space-y-6">
       {isLoading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Searching...
-        </div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 py-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            Searching for data...
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[1,2,3,4].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          </div>
+          <Skeleton className="h-64 rounded-xl" />
+        </motion.div>
       )}
 
-      {error && <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm">Failed to query. Please try a different question.</div>}
-      {hasFailure && !isLoading && <div className="bg-secondary/20 text-muted-foreground p-4 rounded-lg text-sm">{data.failure}</div>}
+      {error && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-destructive/10 text-destructive p-5 rounded-xl text-sm space-y-3">
+          <div className="flex items-start gap-3">
+            <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">Something went wrong</p>
+              <p className="text-muted-foreground mt-1">We couldn't process your query. This might be a temporary issue — please try again.</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => handleQueryClick(submittedQuery)} size="sm" variant="outline" className="gap-1.5">
+              <Search className="w-3.5 h-3.5" /> Retry
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {hasFailure && !isLoading && (
+        <EmptyResultState query={submittedQuery} onQueryClick={handleQueryClick} />
+      )}
 
       {!hasFailure && blocks.length > 0 && !isLoading && (
         <div className="space-y-8 animate-fade-in">
-          <div className="text-sm text-muted-foreground">
-            Here's what we found for your search query:
-          </div>
           <h3 className="font-serif text-2xl md:text-3xl text-foreground">{submittedQuery}</h3>
 
-          {blocks.map((block, bi) => (
+          {/* Summary cards FIRST */}
+          {highlightBlocks.length > 0 && (
+            <section className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Key Figures</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {highlightBlocks.flatMap(block =>
+                  block.tiles.map((tile: any, ti: number) => (
+                    <ChartTile key={`h-${ti}`} tile={tile} mainPlace={block.mainPlace} onDataLoaded={handleDataLoaded} />
+                  ))
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Chart blocks */}
+          {chartBlocks.map((block, bi) => (
             <section key={bi} className="space-y-3">
               <div className="border-b border-border pb-2">
                 <h4 className="font-serif text-lg text-foreground">{block.title}</h4>
