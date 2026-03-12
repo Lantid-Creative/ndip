@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Search, ArrowRight, Mail, Loader2, CheckCircle, Check, Settings } from "lucide-react";
+import { Search, ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import NLSearchPanel from "@/components/NLSearchPanel";
 
@@ -9,11 +9,21 @@ const NEWSLETTER_TOPICS = [
   { id: "health", label: "Health", description: "Life expectancy, healthcare" },
   { id: "education", label: "Education", description: "Literacy, enrollment" },
   { id: "agriculture", label: "Agriculture", description: "Crops, food security" },
-  { id: "sustainability", label: "Sustainability", description: "CO2, renewables, climate" },
+  { id: "sustainability", label: "Sustainability", description: "CO₂, renewables, climate" },
   { id: "infrastructure", label: "Infrastructure", description: "Energy, internet" },
   { id: "governance", label: "Governance", description: "Corruption, institutions" },
   { id: "technology", label: "Technology", description: "Digital economy, startups" },
   { id: "security", label: "Security", description: "Crime, conflict, safety" },
+];
+
+const TIME_OPTIONS = [
+  { value: 6, label: "6:00 AM" },
+  { value: 7, label: "7:00 AM" },
+  { value: 8, label: "8:00 AM" },
+  { value: 9, label: "9:00 AM" },
+  { value: 12, label: "12:00 PM" },
+  { value: 18, label: "6:00 PM" },
+  { value: 21, label: "9:00 PM" },
 ];
 
 const TOPICS = [
@@ -42,8 +52,13 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 function SubscribeSection() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [customTopics, setCustomTopics] = useState<string[]>([]);
+  const [customTopicInput, setCustomTopicInput] = useState("");
+  const [preferredHour, setPreferredHour] = useState(7);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -53,9 +68,23 @@ function SubscribeSection() {
     );
   };
 
+  const addCustomTopic = () => {
+    const trimmed = customTopicInput.trim().toLowerCase();
+    if (trimmed && !customTopics.includes(trimmed) && !NEWSLETTER_TOPICS.some(t => t.id === trimmed)) {
+      setCustomTopics(prev => [...prev, trimmed]);
+      setCustomTopicInput("");
+    }
+  };
+
+  const removeCustomTopic = (topic: string) => {
+    setCustomTopics(prev => prev.filter(t => t !== topic));
+  };
+
+  const allTopics = [...selectedTopics, ...customTopics];
+
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || selectedTopics.length === 0) return;
+    if (!email.trim() || !firstName.trim() || allTopics.length === 0) return;
     setStatus('loading');
     setErrorMsg("");
 
@@ -72,10 +101,20 @@ function SubscribeSection() {
 
     if (existing) {
       subscriberId = existing.id;
+      // Update name and preferences
+      await supabase
+        .from('subscribers')
+        .update({ first_name: firstName.trim(), last_name: lastName.trim(), preferred_hour: preferredHour })
+        .eq('id', subscriberId);
     } else {
       const { data: newSub, error } = await supabase
         .from('subscribers')
-        .insert({ email: normalizedEmail })
+        .insert({
+          email: normalizedEmail,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          preferred_hour: preferredHour,
+        })
         .select('id')
         .single();
 
@@ -91,7 +130,7 @@ function SubscribeSection() {
     const { error: prefError } = await supabase
       .from('subscriber_preferences')
       .upsert(
-        selectedTopics.map((topic) => ({ subscriber_id: subscriberId, topic, is_active: true })),
+        allTopics.map((topic) => ({ subscriber_id: subscriberId, topic, is_active: true })),
         { onConflict: 'subscriber_id,topic' }
       );
 
@@ -112,15 +151,18 @@ function SubscribeSection() {
         </div>
         <h2 className="text-xl font-semibold text-foreground mb-2">Daily Intelligence Report</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Choose the topics you care about and get a personalized AI-generated report every morning.
+          Choose the topics you care about and get a personalized AI-generated report delivered to you.
         </p>
 
         {status === 'success' ? (
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2 text-primary text-sm font-medium">
               <CheckCircle className="w-4 h-4" />
-              You're subscribed with {selectedTopics.length} topic{selectedTopics.length !== 1 ? 's' : ''}!
+              Welcome {firstName}! You're subscribed with {allTopics.length} topic{allTopics.length !== 1 ? 's' : ''}.
             </div>
+            <p className="text-xs text-muted-foreground">
+              Reports will be sent daily at {TIME_OPTIONS.find(t => t.value === preferredHour)?.label || '7:00 AM'} WAT.
+            </p>
             <a
               href={`/manage-preferences?email=${encodeURIComponent(email.trim().toLowerCase())}`}
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
@@ -131,6 +173,25 @@ function SubscribeSection() {
           </div>
         ) : (
           <div className="space-y-5">
+            {/* Name fields */}
+            <div className="flex gap-2 max-w-md mx-auto">
+              <input
+                type="text"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name *"
+                className="flex-1 h-10 px-4 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+                className="flex-1 h-10 px-4 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+            </div>
+
             {/* Topic selection grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-left">
               {NEWSLETTER_TOPICS.map((topic) => {
@@ -161,6 +222,62 @@ function SubscribeSection() {
               })}
             </div>
 
+            {/* Custom topics */}
+            <div className="max-w-md mx-auto">
+              <p className="text-xs text-muted-foreground mb-2">Add your own topics:</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customTopicInput}
+                  onChange={(e) => setCustomTopicInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomTopic())}
+                  placeholder="e.g. fintech, oil prices, diaspora"
+                  className="flex-1 h-9 px-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomTopic}
+                  disabled={!customTopicInput.trim()}
+                  className="h-9 px-3 rounded-lg border border-border bg-card text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-40 flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </button>
+              </div>
+              {customTopics.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {customTopics.map((ct) => (
+                    <span key={ct} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2.5 py-1 rounded-full">
+                      {ct}
+                      <button onClick={() => removeCustomTopic(ct)} className="hover:text-destructive">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Time preference */}
+            <div className="max-w-md mx-auto">
+              <p className="text-xs text-muted-foreground mb-2">Preferred delivery time (WAT):</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {TIME_OPTIONS.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setPreferredHour(t.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      preferredHour === t.value
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-border bg-card text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Email + Subscribe */}
             <form onSubmit={handleSubscribe} className="flex gap-2 max-w-md mx-auto">
               <input
@@ -173,15 +290,18 @@ function SubscribeSection() {
               />
               <button
                 type="submit"
-                disabled={status === 'loading' || selectedTopics.length === 0}
+                disabled={status === 'loading' || allTopics.length === 0 || !firstName.trim()}
                 className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
                 {status === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                Subscribe ({selectedTopics.length})
+                Subscribe ({allTopics.length})
               </button>
             </form>
-            {selectedTopics.length === 0 && (
+            {allTopics.length === 0 && (
               <p className="text-xs text-muted-foreground">Select at least one topic above</p>
+            )}
+            {!firstName.trim() && allTopics.length > 0 && (
+              <p className="text-xs text-muted-foreground">First name is required</p>
             )}
           </div>
         )}

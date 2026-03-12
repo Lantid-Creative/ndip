@@ -144,6 +144,7 @@ function buildPersonalizedReportHTML(
   indicators: { label: string; value: string; date: string; topic: string }[],
   topics: string[],
   aiAnalysis: string | null,
+  firstName: string,
   email: string
 ) {
   const date = new Date().toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -166,6 +167,8 @@ function buildPersonalizedReportHTML(
     `<span style="display: inline-block; background: #e8f5e9; color: #0A6847; padding: 4px 10px; border-radius: 12px; font-size: 12px; margin: 2px;">${topicLabels[t] || t}</span>`
   ).join(' ');
 
+  const greeting = firstName ? `Hi ${firstName},` : 'Hello,';
+
   const analysisSection = aiAnalysis ? `
     <div style="margin-top: 24px; padding: 20px; background: #f8f9fa; border-radius: 12px; border-left: 4px solid #0A6847;">
       <h2 style="margin: 0 0 12px; font-size: 16px; color: #1a1a2e;">AI Intelligence Analysis</h2>
@@ -185,6 +188,9 @@ function buildPersonalizedReportHTML(
       <p style="margin: 0 0 8px; color: #666; font-size: 14px;">${date}</p>
       <div style="margin-top: 8px;">${topicBadges}</div>
     </div>
+    
+    <p style="font-size: 15px; color: #1a1a2e; margin-bottom: 20px;">${greeting}</p>
+    <p style="font-size: 14px; color: #555; margin-bottom: 24px;">Here's your personalized intelligence briefing based on your selected topics.</p>
     
     <table style="width: 100%; border-collapse: collapse; background: #fafaf8; border-radius: 12px; overflow: hidden;">
       <thead>
@@ -223,7 +229,7 @@ serve(async (req) => {
     // Fetch active subscribers with their preferences
     const { data: subscribers, error: subError } = await supabase
       .from('subscribers')
-      .select('id, email')
+      .select('id, email, first_name, preferred_hour')
       .eq('is_active', true);
 
     if (subError) throw subError;
@@ -250,11 +256,11 @@ serve(async (req) => {
     }
 
     // Find unique topic combinations to minimize API calls
-    const topicCombinations = new Map<string, { topics: string[]; subscribers: { id: string; email: string }[] }>();
+    const topicCombinations = new Map<string, { topics: string[]; subscribers: { id: string; email: string; first_name: string | null }[] }>();
     
     for (const sub of subscribers) {
       const topics = prefsBySubscriber.get(sub.id) || [];
-      if (topics.length === 0) continue; // Skip subscribers with no preferences
+      if (topics.length === 0) continue;
       const key = [...topics].sort().join(',');
       if (!topicCombinations.has(key)) {
         topicCombinations.set(key, { topics, subscribers: [] });
@@ -265,14 +271,16 @@ serve(async (req) => {
     const reports: any[] = [];
 
     // Generate personalized report for each topic combination
-    for (const [key, combo] of topicCombinations) {
+    for (const [_key, combo] of topicCombinations) {
+      // For custom topics (not in TOPIC_INDICATORS), AI will still analyze them contextually
       const indicators = await fetchIndicatorsForTopics(dataCommonsKey, combo.topics);
       const aiAnalysis = await generateAIAnalysis(indicators, combo.topics);
 
       for (const sub of combo.subscribers) {
-        const html = buildPersonalizedReportHTML(indicators, combo.topics, aiAnalysis, sub.email);
+        const html = buildPersonalizedReportHTML(indicators, combo.topics, aiAnalysis, sub.first_name || '', sub.email);
         reports.push({
           email: sub.email,
+          first_name: sub.first_name,
           topics: combo.topics,
           indicator_count: indicators.length,
           has_ai_analysis: !!aiAnalysis,
