@@ -128,10 +128,12 @@ export default function DownloadPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   /* ─── Place search ─── */
+  const [placeError, setPlaceError] = useState("");
   const searchPlace = useCallback(async () => {
     if (!placeQuery.trim()) return;
     setSearchingPlace(true);
     setPlaceResults([]);
+    setPlaceError("");
     try {
       const data = await queryDataCommons({
         endpoint: "resolve",
@@ -141,15 +143,20 @@ export default function DownloadPage() {
         },
       });
       if (data?.failure) {
+        setPlaceError("No results found. Try a different search term (e.g. 'Nigeria', 'Lagos', 'United States').");
         setPlaceResults([]);
       } else {
         const entities = data?.entities || [];
         const results: PlaceResult[] = entities
           .flatMap((e: any) => (e.candidates || []).map((c: any) => ({ dcid: c.dcid, name: e.node || c.dcid })))
           .slice(0, 10);
+        if (results.length === 0) {
+          setPlaceError("No matching places found. Try a different search term.");
+        }
         setPlaceResults(results);
       }
     } catch {
+      setPlaceError("Search failed. Please try again.");
       setPlaceResults([]);
     }
     setSearchingPlace(false);
@@ -487,7 +494,12 @@ export default function DownloadPage() {
                   </div>
                 )}
 
-                {/* Selected place chip */}
+                {/* Search error */}
+                {placeError && !selectedPlace && placeResults.length === 0 && (
+                  <p className="mt-2 text-xs text-destructive">{placeError}</p>
+                )}
+
+
                 {selectedPlace && (
                   <div className="mt-2 inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-medium px-3 py-1.5 rounded-full">
                     {selectedPlace.name} ({selectedPlace.dcid})
