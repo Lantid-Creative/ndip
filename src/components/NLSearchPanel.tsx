@@ -1,7 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
-import { Search, Loader2, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info, XCircle, ChevronRight } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Loader2, Sparkles, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Info, XCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useNLQuery } from "@/hooks/useDataCommons";
 import { getTimeSeries, getObservation } from "@/lib/datacommons";
 import { parseTimeSeries, parseLatestValue } from "@/hooks/useDataCommons";
@@ -9,14 +8,6 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-
-const EXAMPLE_QUERIES = [
-  "What is Nigeria's population?",
-  "Health in Nigeria",
-  "Life expectancy in Nigeria over time",
-  "CO2 emissions per capita in Nigeria",
-  "Fertility rate in Nigeria",
-];
 
 const CHART_COLORS = ['#c5221f', '#1a73e8', '#34a853', '#f9ab00', '#9334e6'];
 
