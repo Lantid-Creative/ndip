@@ -1,7 +1,20 @@
 import { useState, useRef } from "react";
-import { Search, ArrowRight, Mail, Loader2, CheckCircle } from "lucide-react";
+import { Search, ArrowRight, Mail, Loader2, CheckCircle, Check, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import NLSearchPanel from "@/components/NLSearchPanel";
+
+const NEWSLETTER_TOPICS = [
+  { id: "economics", label: "Economics", description: "GDP, trade, inflation" },
+  { id: "demographics", label: "Demographics", description: "Population, migration" },
+  { id: "health", label: "Health", description: "Life expectancy, healthcare" },
+  { id: "education", label: "Education", description: "Literacy, enrollment" },
+  { id: "agriculture", label: "Agriculture", description: "Crops, food security" },
+  { id: "sustainability", label: "Sustainability", description: "CO2, renewables, climate" },
+  { id: "infrastructure", label: "Infrastructure", description: "Energy, internet" },
+  { id: "governance", label: "Governance", description: "Corruption, institutions" },
+  { id: "technology", label: "Technology", description: "Digital economy, startups" },
+  { id: "security", label: "Security", description: "Crime, conflict, safety" },
+];
 
 const TOPICS = [
   { label: "Economics", query: "Economy in Nigeria" },
