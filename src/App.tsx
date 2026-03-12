@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound.tsx";
 import ManagePreferences from "./pages/ManagePreferences.tsx";
 import Chat from "./pages/Chat.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
+import Download from "./pages/Download.tsx";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/download" element={<Download />} />
           <Route path="/manage-preferences" element={<ManagePreferences />} />
           <Route path="/unsubscribe" element={<Unsubscribe />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
