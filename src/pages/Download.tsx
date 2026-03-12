@@ -137,11 +137,10 @@ export default function DownloadPage() {
         endpoint: "resolve",
         params: {
           nodes: [placeQuery.trim()],
-          property: "<-description{typeOf:Place}",
+          property: "<-description->dcid",
         },
       });
       if (data?.failure) {
-        // Try with a simple text search fallback
         setPlaceResults([]);
       } else {
         const entities = data?.entities || [];
