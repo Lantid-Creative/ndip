@@ -28,6 +28,73 @@ const CATEGORY_COLORS: Record<string, string> = {
   Demographics: "text-orange-700 dark:text-orange-400",
 };
 
+function SubscribeSection() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setStatus('loading');
+    setErrorMsg("");
+
+    const { error } = await supabase.from('subscribers').insert({ email: email.trim().toLowerCase() });
+
+    if (error) {
+      if (error.code === '23505') {
+        setStatus('success'); // already subscribed, treat as success
+      } else {
+        setStatus('error');
+        setErrorMsg("Something went wrong. Please try again.");
+      }
+    } else {
+      setStatus('success');
+    }
+  };
+
+  return (
+    <section className="bg-primary/5 py-12 md:py-16">
+      <div className="container mx-auto px-4 max-w-xl text-center">
+        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <Mail className="w-5 h-5 text-primary" />
+        </div>
+        <h2 className="text-xl font-semibold text-foreground mb-2">Daily Intelligence Report</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Get key Nigeria indicators delivered to your inbox every morning — population, GDP, health metrics, and more.
+        </p>
+
+        {status === 'success' ? (
+          <div className="flex items-center justify-center gap-2 text-primary text-sm font-medium">
+            <CheckCircle className="w-4 h-4" />
+            You're subscribed! Reports will arrive once email delivery is configured.
+          </div>
+        ) : (
+          <form onSubmit={handleSubscribe} className="flex gap-2 max-w-md mx-auto">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
+              className="flex-1 h-10 px-4 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+            <button
+              type="submit"
+              disabled={status === 'loading'}
+              className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {status === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              Subscribe
+            </button>
+          </form>
+        )}
+        {errorMsg && <p className="text-destructive text-xs mt-2">{errorMsg}</p>}
+      </div>
+    </section>
+  );
+}
+
 const Index = () => {
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
