@@ -1,7 +1,20 @@
 import { useState, useRef } from "react";
-import { Search, ArrowRight, Mail, Loader2, CheckCircle } from "lucide-react";
+import { Search, ArrowRight, Mail, Loader2, CheckCircle, Check, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import NLSearchPanel from "@/components/NLSearchPanel";
+
+const NEWSLETTER_TOPICS = [
+  { id: "economics", label: "Economics", description: "GDP, trade, inflation" },
+  { id: "demographics", label: "Demographics", description: "Population, migration" },
+  { id: "health", label: "Health", description: "Life expectancy, healthcare" },
+  { id: "education", label: "Education", description: "Literacy, enrollment" },
+  { id: "agriculture", label: "Agriculture", description: "Crops, food security" },
+  { id: "sustainability", label: "Sustainability", description: "CO2, renewables, climate" },
+  { id: "infrastructure", label: "Infrastructure", description: "Energy, internet" },
+  { id: "governance", label: "Governance", description: "Corruption, institutions" },
+  { id: "technology", label: "Technology", description: "Digital economy, startups" },
+  { id: "security", label: "Security", description: "Crime, conflict, safety" },
+];
 
 const TOPICS = [
   { label: "Economics", query: "Economy in Nigeria" },
@@ -30,64 +43,147 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 function SubscribeSection() {
   const [email, setEmail] = useState("");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState("");
 
+  const toggleTopic = (topicId: string) => {
+    setSelectedTopics((prev) =>
+      prev.includes(topicId) ? prev.filter((t) => t !== topicId) : [...prev, topicId]
+    );
+  };
+
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email.trim() || selectedTopics.length === 0) return;
     setStatus('loading');
     setErrorMsg("");
 
-    const { error } = await supabase.from('subscribers').insert({ email: email.trim().toLowerCase() });
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (error) {
-      if (error.code === '23505') {
-        setStatus('success'); // already subscribed, treat as success
-      } else {
+    // Insert subscriber (or get existing)
+    const { data: existing } = await supabase
+      .from('subscribers')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    let subscriberId: string;
+
+    if (existing) {
+      subscriberId = existing.id;
+    } else {
+      const { data: newSub, error } = await supabase
+        .from('subscribers')
+        .insert({ email: normalizedEmail })
+        .select('id')
+        .single();
+
+      if (error) {
         setStatus('error');
         setErrorMsg("Something went wrong. Please try again.");
+        return;
       }
-    } else {
-      setStatus('success');
+      subscriberId = newSub.id;
     }
+
+    // Save topic preferences
+    const { error: prefError } = await supabase
+      .from('subscriber_preferences')
+      .upsert(
+        selectedTopics.map((topic) => ({ subscriber_id: subscriberId, topic, is_active: true })),
+        { onConflict: 'subscriber_id,topic' }
+      );
+
+    if (prefError) {
+      setStatus('error');
+      setErrorMsg("Failed to save preferences. Please try again.");
+      return;
+    }
+
+    setStatus('success');
   };
 
   return (
     <section className="bg-primary/5 py-12 md:py-16">
-      <div className="container mx-auto px-4 max-w-xl text-center">
+      <div className="container mx-auto px-4 max-w-2xl text-center">
         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
           <Mail className="w-5 h-5 text-primary" />
         </div>
         <h2 className="text-xl font-semibold text-foreground mb-2">Daily Intelligence Report</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Get key Nigeria indicators delivered to your inbox every morning — population, GDP, health metrics, and more.
+          Choose the topics you care about and get a personalized AI-generated report every morning.
         </p>
 
         {status === 'success' ? (
-          <div className="flex items-center justify-center gap-2 text-primary text-sm font-medium">
-            <CheckCircle className="w-4 h-4" />
-            You're subscribed! Reports will arrive once email delivery is configured.
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 text-primary text-sm font-medium">
+              <CheckCircle className="w-4 h-4" />
+              You're subscribed with {selectedTopics.length} topic{selectedTopics.length !== 1 ? 's' : ''}!
+            </div>
+            <a
+              href={`/manage-preferences?email=${encodeURIComponent(email.trim().toLowerCase())}`}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Settings className="w-3 h-3" />
+              Manage your preferences anytime
+            </a>
           </div>
         ) : (
-          <form onSubmit={handleSubscribe} className="flex gap-2 max-w-md mx-auto">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className="flex-1 h-10 px-4 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-            />
-            <button
-              type="submit"
-              disabled={status === 'loading'}
-              className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {status === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              Subscribe
-            </button>
-          </form>
+          <div className="space-y-5">
+            {/* Topic selection grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-left">
+              {NEWSLETTER_TOPICS.map((topic) => {
+                const isSelected = selectedTopics.includes(topic.id);
+                return (
+                  <button
+                    key={topic.id}
+                    onClick={() => toggleTopic(topic.id)}
+                    className={`relative p-3 rounded-lg border text-left transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <p className="text-xs font-medium text-foreground leading-tight">{topic.label}</p>
+                      <div
+                        className={`w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected ? "bg-primary text-primary-foreground" : "border border-border"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-2.5 h-2.5" />}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{topic.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Email + Subscribe */}
+            <form onSubmit={handleSubscribe} className="flex gap-2 max-w-md mx-auto">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                className="flex-1 h-10 px-4 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+              <button
+                type="submit"
+                disabled={status === 'loading' || selectedTopics.length === 0}
+                className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {status === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                Subscribe ({selectedTopics.length})
+              </button>
+            </form>
+            {selectedTopics.length === 0 && (
+              <p className="text-xs text-muted-foreground">Select at least one topic above</p>
+            )}
+          </div>
         )}
         {errorMsg && <p className="text-destructive text-xs mt-2">{errorMsg}</p>}
       </div>
