@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp, BarChart3 } from "lucide-react";
+import { ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp, BarChart3, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import NLSearchPanel from "@/components/NLSearchPanel";
 import SearchBar from "@/components/SearchBar";
