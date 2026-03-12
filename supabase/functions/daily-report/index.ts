@@ -95,44 +95,60 @@ async function fetchIndicatorsForTopics(apiKey: string, topics: string[]) {
 }
 
 async function generateAIAnalysis(indicators: { label: string; value: string; date: string; topic: string }[], topics: string[]) {
-  const azureEndpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT')
-  const azureKey = Deno.env.get('AZURE_OPENAI_API_KEY')
-  if (!azureEndpoint || !azureKey) {
-    console.error('Azure OpenAI credentials not configured')
+  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
+  if (!lovableApiKey) {
+    console.error('LOVABLE_API_KEY not configured')
     return null
   }
 
-  const dataContext = indicators.map(i => `${i.label}: ${i.value} (${i.date})`).join('\n')
+  const dataContext = indicators.map(i => `${i.label}: ${i.value} (as of ${i.date})`).join('\n')
+  const today = new Date().toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
+  const systemPrompt = `You are a senior Nigeria intelligence analyst writing a daily current-affairs briefing for policymakers, business leaders, and informed citizens. Today is ${today}.
+
+Your job is to transform raw socio-economic data into a compelling, current-affairs style intelligence briefing — the kind a busy minister or CEO reads over morning coffee.
+
+STYLE GUIDELINES:
+- Write like a Bloomberg or Economist intelligence briefing, not an academic report
+- Open with the most newsworthy or striking data point as a "lead"
+- Connect data to real-world events, policy decisions, and economic trends happening in Nigeria right now
+- Compare to regional peers (Ghana, Kenya, South Africa) and global benchmarks
+- Flag risks, opportunities, and what to watch next
+- Use confident, analytical language — not hedging or generic
+- 4-6 short, punchy paragraphs
+- Do NOT use markdown headers, bullet points, or formatting — write flowing prose
+- End with a forward-looking "What to Watch" insight
+
+TOPICS TO FOCUS ON: ${topics.join(', ')}`
 
   try {
-    const resp = await fetch(azureEndpoint, {
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'api-key': azureKey,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
         messages: [
-          {
-            role: 'system',
-            content: `You are a Nigeria policy intelligence analyst. Write a concise daily briefing newsletter section (3-5 paragraphs) analyzing the following data for Nigeria. Focus on topics: ${topics.join(', ')}. Be insightful, mention trends, compare to regional/global benchmarks where relevant, and highlight actionable implications. Use professional but accessible language. Do NOT use markdown headers or bullet points - write flowing paragraphs.`,
-          },
+          { role: 'system', content: systemPrompt },
           {
             role: 'user',
-            content: `Here is today's Nigeria data:\n${dataContext}\n\nWrite the analysis section for the daily intelligence report.`,
+            content: `Here is today's Nigeria data from official sources (World Bank, UN, WHO via Data Commons):\n\n${dataContext}\n\nWrite today's intelligence briefing. Ground your analysis in this data but bring in contextual awareness of Nigeria's current economic and political landscape.`,
           },
         ],
       }),
     })
 
     if (!resp.ok) {
-      console.error('Azure OpenAI error:', resp.status, await resp.text())
+      const errText = await resp.text()
+      console.error('Lovable AI error:', resp.status, errText)
       return null
     }
     const result = await resp.json()
     return result.choices?.[0]?.message?.content || null
   } catch (e) {
-    console.error('Azure OpenAI call failed:', e)
+    console.error('AI analysis call failed:', e)
     return null
   }
 }
