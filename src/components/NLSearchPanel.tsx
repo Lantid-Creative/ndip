@@ -345,7 +345,7 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
       {error && (
         <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm flex items-center justify-between">
           {error}
-          <Button onClick={generateInsights} size="sm" variant="outline">Retry</Button>
+          <Button onClick={() => generateInsights()} size="sm" variant="outline">Retry</Button>
         </div>
       )}
 
