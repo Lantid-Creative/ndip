@@ -494,7 +494,12 @@ export default function DownloadPage() {
                   </div>
                 )}
 
-                {/* Selected place chip */}
+                {/* Search error */}
+                {placeError && !selectedPlace && placeResults.length === 0 && (
+                  <p className="mt-2 text-xs text-destructive">{placeError}</p>
+                )}
+
+
                 {selectedPlace && (
                   <div className="mt-2 inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-medium px-3 py-1.5 rounded-full">
                     {selectedPlace.name} ({selectedPlace.dcid})
