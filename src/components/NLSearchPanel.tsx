@@ -740,9 +740,9 @@ function getUnit(name: string): string | null {
   return null;
 }
 
-// ─── Empty state ────────────────────────────────────────────────────
+// ─── Empty state with AI-powered suggestions ───────────────────────
 
-const SUGGESTED_QUERIES = [
+const FALLBACK_QUERIES = [
   "What is the GDP of Nigeria?",
   "Population growth in Nigeria",
   "Life expectancy in Nigeria",
@@ -752,6 +752,51 @@ const SUGGESTED_QUERIES = [
 ];
 
 function EmptyResultState({ query, onQueryClick }: { query: string; onQueryClick: (q: string) => void }) {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            query: `The user searched for "${query}" on a Nigeria data platform but no results were found. Suggest 6 alternative search queries that ARE available in Google Data Commons for Nigeria. The queries should be related to the user's intent but use measurable statistical indicators (e.g. GDP, population, literacy rate, life expectancy, CO2 emissions, unemployment, infant mortality, fertility rate, internet users, etc). Return ONLY a JSON array of 6 strings, nothing else.`,
+            dataSummary: 'No data found for this query. Generate related searchable alternatives.',
+            mode: 'suggestions_only',
+          }),
+        });
+        if (!resp.ok) throw new Error('Failed');
+        const text = await resp.text();
+        // Extract JSON array from response
+        const match = text.match(/\[[\s\S]*?\]/);
+        if (match && !cancelled) {
+          const parsed = JSON.parse(match[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSuggestions(parsed.filter((s: any) => typeof s === 'string').slice(0, 6));
+          } else {
+            setSuggestions(FALLBACK_QUERIES);
+          }
+        } else {
+          setSuggestions(FALLBACK_QUERIES);
+        }
+      } catch {
+        if (!cancelled) setSuggestions(FALLBACK_QUERIES);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [query]);
+
+  const displaySuggestions = suggestions.length > 0 ? suggestions : FALLBACK_QUERIES;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -761,22 +806,29 @@ function EmptyResultState({ query, onQueryClick }: { query: string; onQueryClick
       <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
         <Search className="w-6 h-6 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-semibold text-foreground mb-2">No results found</h3>
+      <h3 className="text-lg font-semibold text-foreground mb-2">No exact data found</h3>
       <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-        We couldn't find data matching "<span className="font-medium text-foreground">{query}</span>". 
-        Try rephrasing your question or explore one of these topics:
+        We couldn't find statistical data for "<span className="font-medium text-foreground">{query}</span>". 
+        Try one of these related queries instead:
       </p>
-      <div className="flex flex-wrap gap-2 justify-center">
-        {SUGGESTED_QUERIES.map(q => (
-          <button
-            key={q}
-            onClick={() => onQueryClick(q)}
-            className="text-xs px-3.5 py-2 rounded-full border border-border bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all"
-          >
-            {q}
-          </button>
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          Finding related topics...
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2 justify-center">
+          {displaySuggestions.map(q => (
+            <button
+              key={q}
+              onClick={() => onQueryClick(q)}
+              className="text-xs px-3.5 py-2 rounded-full border border-border bg-card text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }
