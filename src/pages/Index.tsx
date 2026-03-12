@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp, BarChart3, Sparkles } from "lucide-react";
+import { ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp, BarChart3, Sparkles, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
