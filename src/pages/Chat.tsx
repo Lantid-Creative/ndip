@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react"
-import { Send, Loader2, Sparkles, BarChart3, Trash2, TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react"
+import { Send, Loader2, Sparkles, BarChart3, Trash2, TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react"
 import { Link } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import ReactMarkdown from "react-markdown"
@@ -101,8 +101,17 @@ async function streamChat({
 // ── Rich content parsing ──
 // Detect stat patterns like "**GDP Per Capita**: $2,184 (2022)" or "Population: 218.5 million"
 type ParsedBlock =
-  | { type: "stat-card"; label: string; value: string; date?: string; trend?: "up" | "down" | "neutral" }
+  | { type: "stat-card"; label: string; value: string; date?: string; trend?: "up" | "down" | "neutral"; source?: string }
   | { type: "markdown"; content: string }
+
+const SOURCE_URLS: Record<string, string> = {
+  "World Bank": "https://datacatalog.worldbank.org",
+  "United Nations": "https://population.un.org/dataportal",
+  "WHO": "https://www.who.int/data/gho",
+  "UNESCO": "https://data.uis.unesco.org",
+  "FAO": "https://www.fao.org/faostat",
+  "ITU": "https://datahub.itu.int",
+}
 
 function detectTrend(text: string): "up" | "down" | "neutral" | undefined {
   const lower = text.toLowerCase()
@@ -124,9 +133,8 @@ function parseAssistantContent(content: string): ParsedBlock[] {
     }
   }
 
-  // Pattern: **Label**: Value or - **Label**: Value  
+  // Pattern: **Label**: Value (Year) [source: X]
   const statPattern = /^[-*•]?\s*\*\*([^*]+)\*\*\s*[:：]\s*(.+)$/
-  // Pattern for table-like "| Label | Value |"
   const tableStatPattern = /^\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|?\s*$/
 
   let pendingStats: ParsedBlock[] = []
@@ -137,12 +145,17 @@ function parseAssistantContent(content: string): ParsedBlock[] {
 
     if (statMatch) {
       const label = statMatch[1].trim()
-      const rawValue = statMatch[2].trim()
+      let rawValue = statMatch[2].trim()
+      
+      // Extract source from [source: X]
+      const sourceMatch = rawValue.match(/\[source:\s*([^\]]+)\]/)
+      const source = sourceMatch?.[1]?.trim()
+      if (sourceMatch) rawValue = rawValue.replace(sourceMatch[0], "").trim()
+      
       // Extract date from parenthetical
       const dateMatch = rawValue.match(/\((?:as of\s*)?(\d{4})\)/)
       const value = rawValue.replace(/\((?:as of\s*)?\d{4}\)/, "").trim()
       
-      // Only treat as stat card if value looks like a number/metric
       if (/[\d$%₦]/.test(value) && label.length < 60) {
         flushMarkdown()
         pendingStats.push({
@@ -151,6 +164,7 @@ function parseAssistantContent(content: string): ParsedBlock[] {
           value,
           date: dateMatch?.[1],
           trend: detectTrend(rawValue),
+          source,
         })
         continue
       }
@@ -171,7 +185,6 @@ function parseAssistantContent(content: string): ParsedBlock[] {
       }
     }
 
-    // If we had pending stat cards and now hit a non-stat line, flush them
     if (pendingStats.length > 0) {
       blocks.push(...pendingStats)
       pendingStats = []
@@ -188,9 +201,10 @@ function parseAssistantContent(content: string): ParsedBlock[] {
   return blocks
 }
 
-function StatCard({ label, value, date, trend }: { label: string; value: string; date?: string; trend?: "up" | "down" | "neutral" }) {
+function StatCard({ label, value, date, trend, source }: { label: string; value: string; date?: string; trend?: "up" | "down" | "neutral"; source?: string }) {
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus
   const trendColor = trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-500" : "text-muted-foreground"
+  const sourceUrl = source ? SOURCE_URLS[source] || `https://datacommons.org/place/country/NGA` : undefined
 
   return (
     <Card className="border-border/60 bg-card shadow-sm hover:shadow-md transition-shadow">
@@ -206,6 +220,21 @@ function StatCard({ label, value, date, trend }: { label: string; value: string;
               <TrendIcon className="w-3.5 h-3.5" />
             </div>
           )}
+        </div>
+        {/* Source reference — Data Commons style */}
+        <div className="mt-2 pt-2 border-t border-border/40 flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span>Source:</span>
+          {sourceUrl ? (
+            <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
+              {source} <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          ) : (
+            <span>{source || "Data Commons"}</span>
+          )}
+          <span>•</span>
+          <a href="https://datacommons.org/place/country/NGA" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
+            About this data <ExternalLink className="w-2.5 h-2.5" />
+          </a>
         </div>
       </CardContent>
     </Card>
@@ -235,7 +264,7 @@ function RichAssistantMessage({ content }: { content: string }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: j * 0.05 }}
             >
-              <StatCard label={s.label} value={s.value} date={s.date} trend={s.trend} />
+              <StatCard label={s.label} value={s.value} date={s.date} trend={s.trend} source={s.source} />
             </motion.div>
           ))}
         </div>
