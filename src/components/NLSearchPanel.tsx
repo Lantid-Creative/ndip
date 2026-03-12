@@ -174,7 +174,7 @@ function SourceAttribution({ data, dcid, mainPlace }: { data: any; dcid: string;
   const source = getSourceInfo(data, dcid, mainPlace);
   if (!source?.domain) return null;
   return (
-    <p className="text-[11px] text-muted-foreground mt-1">
+    <p className="text-[11px] text-muted-foreground mt-1 truncate">
       Source: <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{source.domain}</a>
     </p>
   );
@@ -191,7 +191,7 @@ function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPl
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-primary/5 rounded-xl p-6 flex flex-col justify-center border border-primary/10"
+      className="bg-primary/5 rounded-xl p-6 flex flex-col justify-center border border-primary/10 overflow-hidden"
     >
       {values.map((v: any, i: number) => (
         <div key={i}>
@@ -235,7 +235,7 @@ function ChartSummary({ tile, data, mainPlace }: { tile: any; data: any; mainPla
       {getUnit(summary.name) && <p className="text-sm text-muted-foreground mt-1">{getUnit(summary.name)}</p>}
       <p className="text-sm font-medium text-foreground mt-3">{tile.title || summary.name} in Nigeria ({summary.date})</p>
       {summary.source?.domain && (
-        <p className="text-[11px] text-muted-foreground mt-2">
+        <p className="text-[11px] text-muted-foreground mt-2 truncate">
           Source: <a href={summary.source.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{summary.source.domain}</a>
         </p>
       )}
@@ -268,7 +268,7 @@ function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: 
 
   return (
     <>
-      <div className="bg-card rounded-xl p-5 border border-border">
+      <div className="bg-card rounded-xl p-5 border border-border overflow-hidden">
         <div className="flex items-center justify-between mb-1">
           <h5 className="text-sm font-semibold text-foreground">{tile.title}</h5>
           <div className="flex items-center gap-1">
@@ -369,7 +369,7 @@ function BarTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: s
   if (chartData.length === 0) return null;
   return (
     <>
-      <div className="bg-card rounded-xl p-5 border border-border">
+      <div className="bg-card rounded-xl p-5 border border-border overflow-hidden">
         <div className="flex items-center justify-between mb-1">
           <h5 className="text-sm font-semibold text-foreground">{tile.title}</h5>
           <div className="flex items-center gap-1">
@@ -939,7 +939,7 @@ const NLSearchPanel = ({ initialQuery, onQueryChange }: NLSearchPanelProps) => {
       )}
 
       {!hasFailure && blocks.length > 0 && !isLoading && (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-8 animate-fade-in overflow-hidden">
           <h3 className="font-serif text-2xl md:text-3xl text-foreground">{submittedQuery}</h3>
 
           {/* Summary cards FIRST */}

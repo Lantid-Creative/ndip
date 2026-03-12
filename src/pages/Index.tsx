@@ -351,7 +351,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-4 flex items-center h-14 gap-3 md:gap-4">
