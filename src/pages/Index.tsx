@@ -394,7 +394,7 @@ const Index = () => {
                 >
                   <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-medium px-3 py-1.5 rounded-full mb-6">
                     <BarChart3 className="w-3 h-3" />
-                    Powered by Google Data Commons
+                    Real-time public data insights
                   </div>
                   <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] text-foreground leading-[1.15] font-normal text-balance mb-5">
                     Nigeria's public data,{" "}
