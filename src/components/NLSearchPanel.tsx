@@ -271,17 +271,19 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
 }) {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasGenerated, setHasGenerated] = useState(false);
   const [error, setError] = useState('');
+  const [followUp, setFollowUp] = useState('');
+  const [hasTriggered, setHasTriggered] = useState('');
 
-  const generateInsights = useCallback(async () => {
+  const generateInsights = useCallback(async (extraContext?: string) => {
     const dataSummary = buildDataSummary(blocks, collectedData);
     if (!dataSummary.trim()) return;
 
     setIsLoading(true);
-    setHasGenerated(true);
     setError('');
     setAnalysis(null);
+
+    const fullQuery = extraContext ? `${query}\n\nFollow-up: ${extraContext}` : query;
 
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-analyze`, {
@@ -290,13 +292,10 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ query, dataSummary }),
+        body: JSON.stringify({ query: fullQuery, dataSummary }),
       });
 
-      if (!resp.ok) {
-        throw new Error('Analysis failed');
-      }
-
+      if (!resp.ok) throw new Error('Analysis failed');
       const data = await resp.json();
       if (data.error) throw new Error(data.error);
       setAnalysis(data);
@@ -308,26 +307,25 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
     }
   }, [query, blocks, collectedData]);
 
+  // Auto-trigger when data is ready
   const dataReady = Object.keys(collectedData).length > 0;
+  useEffect(() => {
+    if (dataReady && query && query !== hasTriggered) {
+      setHasTriggered(query);
+      generateInsights();
+    }
+  }, [dataReady, query, hasTriggered, generateInsights]);
+
+  const handleFollowUp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (followUp.trim()) {
+      generateInsights(followUp.trim());
+      setFollowUp('');
+    }
+  };
 
   return (
     <div className="space-y-1">
-      {/* Trigger */}
-      {!hasGenerated && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/10"
-        >
-          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <Sparkles className="w-4.5 h-4.5 text-primary" />
-          </div>
-          <p className="text-sm text-muted-foreground flex-1">Get AI-powered insights, comparisons, and policy implications from this data.</p>
-          <Button onClick={generateInsights} disabled={!dataReady} size="sm" className="gap-1.5 shrink-0">
-            <Sparkles className="w-3.5 h-3.5" /> Analyze
-          </Button>
-        </motion.div>
-      )}
 
       {/* Loading */}
       {isLoading && (
