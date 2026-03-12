@@ -29,18 +29,17 @@ serve(async (req) => {
     let fetchOptions: RequestInit;
 
     if (endpoint === 'nl') {
-      // Natural Language API - try with key in URL
-      url = `https://nl.datacommons.org/api/explore/detect-and-fulfill?key=${API_KEY}`;
-      const nlBody = {
-        contextHistory: [],
-        dc: '',
-        query: String(params.query),
-      };
-      console.log('NL request body:', JSON.stringify(nlBody));
+      // Natural Language API - query goes as URL param 'q', context in body
+      const q = encodeURIComponent(String(params.query));
+      url = `https://nl.datacommons.org/api/explore/detect-and-fulfill?q=${q}`;
+      headers['X-API-Key'] = API_KEY;
       fetchOptions = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nlBody),
+        headers,
+        body: JSON.stringify({
+          contextHistory: [],
+          dc: '',
+        }),
       };
     } else if (endpoint === 'observation') {
       url = 'https://api.datacommons.org/v2/observation';
