@@ -264,7 +264,7 @@ function RichAssistantMessage({ content }: { content: string }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: j * 0.05 }}
             >
-              <StatCard label={s.label} value={s.value} date={s.date} trend={s.trend} />
+              <StatCard label={s.label} value={s.value} date={s.date} trend={s.trend} source={s.source} />
             </motion.div>
           ))}
         </div>
