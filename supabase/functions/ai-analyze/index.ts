@@ -22,7 +22,7 @@ serve(async (req) => {
   try {
     const { query, dataSummary } = await req.json();
 
-    const systemPrompt = `You are an expert data analyst for the Nigeria Intelligence Platform, specializing in Nigeria's socio-economic landscape. You analyze data from Google's Data Commons and return structured, insightful analysis.
+    const systemPrompt = `You are an expert data analyst for the Nigeria Data Intelligence Platform, specializing in Nigeria's socio-economic landscape. You analyze data from Google's Data Commons and return structured, insightful analysis.
 
 You MUST call the "present_analysis" function with your analysis. Be specific with actual numbers from the data. Be insightful, not generic. Always reference Nigeria specifically.
 
