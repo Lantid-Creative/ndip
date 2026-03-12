@@ -10,8 +10,21 @@ export async function queryDataCommons(request: DataCommonsParams) {
     body: request,
   });
 
-  if (error) throw new Error(error.message || 'Failed to query Data Commons');
-  if (data?.error) throw new Error(data.error);
+  // For NL queries, always return a safe payload so UI can render fallback states.
+  if (error) {
+    if (request.endpoint === 'nl') {
+      return { failure: true, error: error.message || 'Failed to query Data Commons' };
+    }
+    throw new Error(error.message || 'Failed to query Data Commons');
+  }
+
+  if (data?.error) {
+    if (request.endpoint === 'nl') {
+      return { failure: true, error: String(data.error) };
+    }
+    throw new Error(String(data.error));
+  }
+
   return data;
 }
 
