@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 const DATA_COMMONS_API = 'https://api.datacommons.org/v2/observation'
-const PLATFORM_URL = 'https://ndip.ng'
+const PLATFORM_URL = Deno.env.get('PLATFORM_URL') || 'https://ndip.lovable.app'
 
 // Topic -> Data Commons indicators mapping
 const TOPIC_INDICATORS: Record<string, { dcid: string; label: string; format: (v: number) => string }[]> = {
@@ -224,7 +224,7 @@ function buildPersonalizedReportHTML(
 
     <p style="margin-top: 24px; font-size: 13px; color: #999; text-align: center;">
       Data sourced from Google Data Commons (World Bank, UN, WHO).<br/>
-      <a href="${PLATFORM_URL}/manage-preferences?email=${encodeURIComponent(email)}" style="color: #0A6847;">Manage preferences</a> · <a href="${PLATFORM_URL}/manage-preferences?email=${encodeURIComponent(email)}&unsubscribe=true" style="color: #0A6847;">Unsubscribe</a>
+      <a href="${PLATFORM_URL}/manage-preferences?email=${encodeURIComponent(email)}" style="color: #0A6847;">Manage preferences</a> · <a href="${PLATFORM_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="color: #0A6847;">Unsubscribe</a>
     </p>
     
     <p style="margin-top: 16px; font-size: 12px; color: #aaa; text-align: center;">
