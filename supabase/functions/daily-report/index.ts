@@ -95,44 +95,60 @@ async function fetchIndicatorsForTopics(apiKey: string, topics: string[]) {
 }
 
 async function generateAIAnalysis(indicators: { label: string; value: string; date: string; topic: string }[], topics: string[]) {
-  const azureEndpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT')
-  const azureKey = Deno.env.get('AZURE_OPENAI_API_KEY')
-  if (!azureEndpoint || !azureKey) {
-    console.error('Azure OpenAI credentials not configured')
+  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
+  if (!lovableApiKey) {
+    console.error('LOVABLE_API_KEY not configured')
     return null
   }
 
-  const dataContext = indicators.map(i => `${i.label}: ${i.value} (${i.date})`).join('\n')
+  const dataContext = indicators.map(i => `${i.label}: ${i.value} (as of ${i.date})`).join('\n')
+  const today = new Date().toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
+  const systemPrompt = `You are a senior Nigeria intelligence analyst writing a daily current-affairs briefing for policymakers, business leaders, and informed citizens. Today is ${today}.
+
+Your job is to transform raw socio-economic data into a compelling, current-affairs style intelligence briefing — the kind a busy minister or CEO reads over morning coffee.
+
+STYLE GUIDELINES:
+- Write like a Bloomberg or Economist intelligence briefing, not an academic report
+- Open with the most newsworthy or striking data point as a "lead"
+- Connect data to real-world events, policy decisions, and economic trends happening in Nigeria right now
+- Compare to regional peers (Ghana, Kenya, South Africa) and global benchmarks
+- Flag risks, opportunities, and what to watch next
+- Use confident, analytical language — not hedging or generic
+- 4-6 short, punchy paragraphs
+- Do NOT use markdown headers, bullet points, or formatting — write flowing prose
+- End with a forward-looking "What to Watch" insight
+
+TOPICS TO FOCUS ON: ${topics.join(', ')}`
 
   try {
-    const resp = await fetch(azureEndpoint, {
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'api-key': azureKey,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
         messages: [
-          {
-            role: 'system',
-            content: `You are a Nigeria policy intelligence analyst. Write a concise daily briefing newsletter section (3-5 paragraphs) analyzing the following data for Nigeria. Focus on topics: ${topics.join(', ')}. Be insightful, mention trends, compare to regional/global benchmarks where relevant, and highlight actionable implications. Use professional but accessible language. Do NOT use markdown headers or bullet points - write flowing paragraphs.`,
-          },
+          { role: 'system', content: systemPrompt },
           {
             role: 'user',
-            content: `Here is today's Nigeria data:\n${dataContext}\n\nWrite the analysis section for the daily intelligence report.`,
+            content: `Here is today's Nigeria data from official sources (World Bank, UN, WHO via Data Commons):\n\n${dataContext}\n\nWrite today's intelligence briefing. Ground your analysis in this data but bring in contextual awareness of Nigeria's current economic and political landscape.`,
           },
         ],
       }),
     })
 
     if (!resp.ok) {
-      console.error('Azure OpenAI error:', resp.status, await resp.text())
+      const errText = await resp.text()
+      console.error('Lovable AI error:', resp.status, errText)
       return null
     }
     const result = await resp.json()
     return result.choices?.[0]?.message?.content || null
   } catch (e) {
-    console.error('Azure OpenAI call failed:', e)
+    console.error('AI analysis call failed:', e)
     return null
   }
 }
@@ -167,9 +183,10 @@ function buildPersonalizedReportHTML(
   const greeting = firstName ? `Hi ${firstName},` : 'Hello,'
 
   const analysisSection = aiAnalysis ? `
-    <div style="margin-top: 24px; padding: 20px; background: #f8f9fa; border-radius: 12px; border-left: 4px solid #0A6847;">
-      <h2 style="margin: 0 0 12px; font-size: 16px; color: #1a1a2e;">AI Intelligence Analysis</h2>
-      <div style="font-size: 14px; color: #333; line-height: 1.7;">${aiAnalysis.replace(/\n/g, '<br/>')}</div>
+    <div style="margin-top: 24px; padding: 24px; background: #fafcfa; border-radius: 12px; border-left: 4px solid #0A6847;">
+      <h2 style="margin: 0 0 4px; font-size: 17px; color: #0A6847;">📰 Today's Intelligence Briefing</h2>
+      <p style="margin: 0 0 16px; font-size: 12px; color: #999;">AI-generated analysis based on official data sources</p>
+      <div style="font-size: 15px; color: #222; line-height: 1.75;">${aiAnalysis.replace(/\n\n/g, '</p><p style="margin: 12px 0; font-size: 15px; color: #222; line-height: 1.75;">').replace(/\n/g, '<br/>')}</div>
     </div>
   ` : ''
 
@@ -179,15 +196,18 @@ function buildPersonalizedReportHTML(
 <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
   <div style="max-width: 600px; margin: 0 auto; padding: 32px 20px;">
     <div style="text-align: center; margin-bottom: 24px;">
-      <div style="display: inline-block; background: #0A6847; color: white; font-weight: bold; padding: 8px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 12px;">NDIP</div>
-      <h1 style="margin: 8px 0 4px; font-size: 22px; color: #1a1a2e;">Your Daily Intelligence Report</h1>
+      <div style="display: inline-block; background: linear-gradient(135deg, #0a6b3d, #0f8a4f); color: white; font-weight: bold; padding: 10px 18px; border-radius: 8px; font-size: 15px; margin-bottom: 12px;">🇳🇬 NDIP</div>
+      <h1 style="margin: 8px 0 4px; font-size: 22px; color: #1a1a2e;">Daily Intelligence Report</h1>
       <p style="margin: 0 0 8px; color: #666; font-size: 14px;">${date}</p>
       <div style="margin-top: 8px;">${topicBadges}</div>
     </div>
     
-    <p style="font-size: 15px; color: #1a1a2e; margin-bottom: 20px;">${greeting}</p>
-    <p style="font-size: 14px; color: #555; margin-bottom: 24px;">Here's your personalized intelligence briefing based on your selected topics.</p>
+    <p style="font-size: 15px; color: #1a1a2e; margin-bottom: 8px;">${greeting}</p>
+    <p style="font-size: 14px; color: #555; margin-bottom: 24px;">Here's what's happening across your tracked sectors today, backed by the latest available data.</p>
     
+    ${analysisSection}
+
+    <h3 style="margin: 28px 0 12px; font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">📊 Supporting Data</h3>
     <table style="width: 100%; border-collapse: collapse; background: #fafaf8; border-radius: 12px; overflow: hidden;">
       <thead>
         <tr style="background: #0A6847;">
@@ -198,8 +218,6 @@ function buildPersonalizedReportHTML(
       </thead>
       <tbody>${rows}</tbody>
     </table>
-    
-    ${analysisSection}
     
     <div style="margin-top: 24px; text-align: center;">
       <a href="${PLATFORM_URL}" style="display: inline-block; background: #0A6847; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">Explore the Platform →</a>
