@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Search, ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, ArrowRight, Mail, Loader2, CheckCircle, Check, Settings, Plus, X, ArrowUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import NLSearchPanel from "@/components/NLSearchPanel";
 
