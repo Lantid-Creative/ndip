@@ -32,14 +32,16 @@ serve(async (req) => {
       // Natural Language API
       url = 'https://nl.datacommons.org/api/explore/detect-and-fulfill';
       headers['X-API-Key'] = API_KEY;
+      const nlBody = {
+        contextHistory: [],
+        dc: '',
+        query: String(params.query),
+      };
+      console.log('NL request body:', JSON.stringify(nlBody));
       fetchOptions = {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          contextHistory: [],
-          dc: '',
-          query: params.query || '',
-        }),
+        body: JSON.stringify(nlBody),
       };
     } else if (endpoint === 'observation') {
       url = 'https://api.datacommons.org/v2/observation';
