@@ -29,8 +29,9 @@ serve(async (req) => {
     let fetchOptions: RequestInit;
 
     if (endpoint === 'nl') {
-      // Natural Language API
-      url = 'https://nl.datacommons.org/api/explore/detect-and-fulfill';
+      // Natural Language API - query goes as URL param 'q', context in body
+      const q = encodeURIComponent(String(params.query));
+      url = `https://nl.datacommons.org/api/explore/detect-and-fulfill?q=${q}`;
       headers['X-API-Key'] = API_KEY;
       fetchOptions = {
         method: 'POST',
@@ -38,7 +39,6 @@ serve(async (req) => {
         body: JSON.stringify({
           contextHistory: [],
           dc: '',
-          ...params,
         }),
       };
     } else if (endpoint === 'observation') {

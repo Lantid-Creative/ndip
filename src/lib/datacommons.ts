@@ -49,7 +49,7 @@ export async function getTimeSeries(
 export async function naturalLanguageQuery(query: string) {
   return queryDataCommons({
     endpoint: 'nl',
-    params: { queries: [query] },
+    params: { query },
   });
 }
 
