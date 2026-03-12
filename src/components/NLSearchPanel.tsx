@@ -138,6 +138,33 @@ function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPl
   );
 }
 
+function ChartSummary({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: string }) {
+  const summary = useMemo(() => {
+    if (!data || tile.statVars.length === 0) return null;
+    const sv = tile.statVars[0];
+    const series = parseTimeSeries(data, sv.dcid, mainPlace);
+    if (series.length === 0) return null;
+    const latest = series[series.length - 1];
+    const source = getSourceInfo(data, sv.dcid, mainPlace);
+    return { value: latest.value, date: latest.date, name: sv.name, dcid: sv.dcid, source };
+  }, [data, tile, mainPlace]);
+
+  if (!summary) return null;
+
+  return (
+    <div className="flex flex-col justify-center p-5">
+      <p className="text-4xl font-bold text-foreground tracking-tight">{formatHighlightValue(summary.value)}</p>
+      {getUnit(summary.name) && <p className="text-sm text-muted-foreground mt-1">{getUnit(summary.name)}</p>}
+      <p className="text-sm font-medium text-foreground mt-3">{tile.title || summary.name} in Nigeria ({summary.date})</p>
+      {summary.source?.domain && (
+        <p className="text-[11px] text-muted-foreground mt-2">
+          Source: <a href={summary.source.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{summary.source.domain}</a>
+        </p>
+      )}
+    </div>
+  );
+}
+
 function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: string }) {
   const chartData = useMemo(() => {
     if (!data) return [];
@@ -155,39 +182,42 @@ function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: 
   if (chartData.length === 0) return <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No data available</div>;
 
   return (
-    <div className="bg-card rounded-xl p-5 border border-border">
-      <h5 className="text-sm font-semibold text-foreground mb-1">{tile.title}</h5>
-      <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
-      <div className="mt-3">
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} width={55} />
-            <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-              formatter={(value: number, name: string) => {
-                const svName = tile.statVars.find((sv: any) => sv.dcid === name)?.name || name;
-                return [formatValue(value), svName === 'value' ? tile.statVars[0]?.name : svName];
-              }} />
-            {tile.statVars.length === 1 ? (
-              <Line type="monotone" dataKey="value" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-            ) : (
-              tile.statVars.map((sv: any, i: number) => (
-                <Line key={sv.dcid} type="monotone" dataKey={sv.dcid} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} name={sv.dcid} activeDot={{ r: 4 }} />
-              ))
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-        <div className="flex gap-4 mt-2 px-2">
-          {tile.statVars.map((sv: any, i: number) => (
-            <div key={sv.dcid} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-              {sv.name}
-            </div>
-          ))}
+    <>
+      <div className="bg-card rounded-xl p-5 border border-border">
+        <h5 className="text-sm font-semibold text-foreground mb-1">{tile.title}</h5>
+        <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
+        <div className="mt-3">
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} width={55} />
+              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                formatter={(value: number, name: string) => {
+                  const svName = tile.statVars.find((sv: any) => sv.dcid === name)?.name || name;
+                  return [formatValue(value), svName === 'value' ? tile.statVars[0]?.name : svName];
+                }} />
+              {tile.statVars.length === 1 ? (
+                <Line type="monotone" dataKey="value" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              ) : (
+                tile.statVars.map((sv: any, i: number) => (
+                  <Line key={sv.dcid} type="monotone" dataKey={sv.dcid} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} name={sv.dcid} activeDot={{ r: 4 }} />
+                ))
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+          <div className="flex gap-4 mt-2 px-2">
+            {tile.statVars.map((sv: any, i: number) => (
+              <div key={sv.dcid} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                {sv.name}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+      <ChartSummary tile={tile} data={data} mainPlace={mainPlace} />
+    </>
   );
 }
 
