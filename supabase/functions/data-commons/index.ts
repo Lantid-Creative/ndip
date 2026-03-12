@@ -81,6 +81,16 @@ serve(async (req) => {
 
     console.log(`Calling Data Commons ${endpoint}: ${url}`);
     const response = await fetch(url, fetchOptions);
+    const contentType = response.headers.get('content-type') || '';
+
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error(`Data Commons returned non-JSON (${response.status}): ${text.substring(0, 200)}`);
+      return new Response(JSON.stringify({ error: `Data Commons returned non-JSON response (${response.status}). The API may be unavailable for this query.` }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const data = await response.json();
 
     if (!response.ok) {
