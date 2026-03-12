@@ -359,7 +359,7 @@ const Index = () => {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <BarChart3 className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-serif text-lg text-foreground hidden sm:block">NDIP</span>
+            <span className="font-serif text-foreground text-sm md:text-lg whitespace-nowrap">Nigeria Data Intelligence Platform</span>
           </a>
 
           <SearchBar
