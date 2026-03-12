@@ -1,12 +1,49 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { Search, TrendingUp, BarChart3, Globe2, MessageCircle } from "lucide-react";
+import HeroSection from "@/components/HeroSection";
+import KPIGrid from "@/components/KPIGrid";
+import TrendChart from "@/components/TrendChart";
+import ComparePanel from "@/components/ComparePanel";
+import NLSearchPanel from "@/components/NLSearchPanel";
+import AppNavbar from "@/components/AppNavbar";
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'compare' | 'ask'>('overview');
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <AppNavbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      
+      {activeTab === 'overview' && (
+        <>
+          <HeroSection />
+          <KPIGrid />
+        </>
+      )}
+      
+      {activeTab === 'trends' && (
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <h2 className="font-serif text-3xl text-foreground mb-2">Trend Explorer</h2>
+          <p className="text-muted-foreground mb-8">Track Nigeria's key indicators over time</p>
+          <TrendChart />
+        </main>
+      )}
+      
+      {activeTab === 'compare' && (
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <h2 className="font-serif text-3xl text-foreground mb-2">Country Comparison</h2>
+          <p className="text-muted-foreground mb-8">Benchmark Nigeria against peer nations</p>
+          <ComparePanel />
+        </main>
+      )}
+      
+      {activeTab === 'ask' && (
+        <main className="container mx-auto px-4 pt-24 pb-12">
+          <h2 className="font-serif text-3xl text-foreground mb-2">Ask About Nigeria</h2>
+          <p className="text-muted-foreground mb-8">Ask natural language questions about Nigeria's data</p>
+          <NLSearchPanel />
+        </main>
+      )}
     </div>
   );
 };
