@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      subscriber_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          subscriber_id: string
+          topic: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          subscriber_id: string
+          topic: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          subscriber_id?: string
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriber_preferences_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "subscribers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscribers: {
         Row: {
           email: string
