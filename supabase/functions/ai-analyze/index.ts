@@ -20,8 +20,32 @@ serve(async (req) => {
   }
 
   try {
-    const { query, dataSummary } = await req.json();
+    const { query, dataSummary, mode } = await req.json();
 
+    const endpoint = AZURE_ENDPOINT.endsWith('/') ? AZURE_ENDPOINT.slice(0, -1) : AZURE_ENDPOINT;
+
+    // ─── Suggestions-only mode ─────────────────────────────────────
+    if (mode === 'suggestions_only') {
+      const suggestResp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api-key': AZURE_KEY },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'You suggest search queries for a Nigeria data platform powered by Google Data Commons. Return ONLY a JSON array of 6 strings. Each query must be a concrete, measurable statistical question about Nigeria that Data Commons can answer (use indicators like GDP, population, life expectancy, literacy rate, unemployment, CO2 emissions, infant mortality, fertility rate, internet users, etc). Make them relevant to the user\'s original intent.' },
+            { role: 'user', content: query },
+          ],
+          temperature: 0.8,
+        }),
+      });
+      if (!suggestResp.ok) {
+        return new Response('[]', { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const suggestResult = await suggestResp.json();
+      const content = suggestResult.choices?.[0]?.message?.content || '[]';
+      return new Response(content, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ─── Full analysis mode ────────────────────────────────────────
     const systemPrompt = `You are an expert data analyst for the Nigeria Data Intelligence Platform, specializing in Nigeria's socio-economic landscape. You analyze data from Google's Data Commons and return structured, insightful analysis.
 
 You MUST call the "present_analysis" function with your analysis. Be specific with actual numbers from the data. Be insightful, not generic. Always reference Nigeria specifically.
