@@ -939,7 +939,7 @@ const NLSearchPanel = ({ initialQuery, onQueryChange }: NLSearchPanelProps) => {
       )}
 
       {!hasFailure && blocks.length > 0 && !isLoading && (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-8 animate-fade-in overflow-hidden">
           <h3 className="font-serif text-2xl md:text-3xl text-foreground">{submittedQuery}</h3>
 
           {/* Summary cards FIRST */}
