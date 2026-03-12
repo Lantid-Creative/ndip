@@ -163,6 +163,16 @@ function SubscribeSection() {
       return;
     }
 
+    // Send welcome email (fire-and-forget, don't block UI)
+    supabase.functions.invoke('send-welcome-email', {
+      body: {
+        firstName: firstName.trim(),
+        email: normalizedEmail,
+        topics: allTopics,
+        preferredHour,
+      },
+    }).catch(err => console.error('Welcome email failed:', err));
+
     setStatus('success');
   };
 
