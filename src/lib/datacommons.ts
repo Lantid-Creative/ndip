@@ -11,6 +11,7 @@ export async function queryDataCommons(request: DataCommonsParams) {
   });
 
   if (error) throw new Error(error.message || 'Failed to query Data Commons');
+  if (data?.error) throw new Error(data.error);
   return data;
 }
 
