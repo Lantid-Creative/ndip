@@ -256,11 +256,11 @@ serve(async (req) => {
     }
 
     // Find unique topic combinations to minimize API calls
-    const topicCombinations = new Map<string, { topics: string[]; subscribers: { id: string; email: string }[] }>();
+    const topicCombinations = new Map<string, { topics: string[]; subscribers: { id: string; email: string; first_name: string | null }[] }>();
     
     for (const sub of subscribers) {
       const topics = prefsBySubscriber.get(sub.id) || [];
-      if (topics.length === 0) continue; // Skip subscribers with no preferences
+      if (topics.length === 0) continue;
       const key = [...topics].sort().join(',');
       if (!topicCombinations.has(key)) {
         topicCombinations.set(key, { topics, subscribers: [] });
@@ -271,14 +271,16 @@ serve(async (req) => {
     const reports: any[] = [];
 
     // Generate personalized report for each topic combination
-    for (const [key, combo] of topicCombinations) {
+    for (const [_key, combo] of topicCombinations) {
+      // For custom topics (not in TOPIC_INDICATORS), AI will still analyze them contextually
       const indicators = await fetchIndicatorsForTopics(dataCommonsKey, combo.topics);
       const aiAnalysis = await generateAIAnalysis(indicators, combo.topics);
 
       for (const sub of combo.subscribers) {
-        const html = buildPersonalizedReportHTML(indicators, combo.topics, aiAnalysis, sub.email);
+        const html = buildPersonalizedReportHTML(indicators, combo.topics, aiAnalysis, sub.first_name || '', sub.email);
         reports.push({
           email: sub.email,
+          first_name: sub.first_name,
           topics: combo.topics,
           indicator_count: indicators.length,
           has_ai_analysis: !!aiAnalysis,
