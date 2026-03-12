@@ -79,11 +79,11 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Verify SMTP config is present
-  if (!Deno.env.get('SMTP_HOST') || !Deno.env.get('SMTP_USERNAME') || !Deno.env.get('SMTP_PASSWORD')) {
-    console.error('Missing SMTP configuration')
+  // Verify PHP relay config is present
+  if (!Deno.env.get('PHP_RELAY_API_KEY')) {
+    console.error('Missing PHP_RELAY_API_KEY')
     return new Response(
-      JSON.stringify({ error: 'SMTP not configured' }),
+      JSON.stringify({ error: 'PHP relay not configured' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
