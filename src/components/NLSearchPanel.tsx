@@ -232,23 +232,26 @@ function BarTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: s
 
   if (chartData.length === 0) return null;
   return (
-    <div className="bg-card rounded-xl p-5 border border-border">
-      <h5 className="text-sm font-semibold text-foreground mb-1">{tile.title}</h5>
-      <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
-      <div className="mt-3">
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} />
-            <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(v: number) => [formatValue(v), '']} />
-            <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={36}>
-              {chartData.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+    <>
+      <div className="bg-card rounded-xl p-5 border border-border">
+        <h5 className="text-sm font-semibold text-foreground mb-1">{tile.title}</h5>
+        <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
+        <div className="mt-3">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} />
+              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(v: number) => [formatValue(v), '']} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={36}>
+                {chartData.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
-    </div>
+      <ChartSummary tile={tile} data={data} mainPlace={mainPlace} />
+    </>
   );
 }
 
