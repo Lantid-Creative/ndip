@@ -229,7 +229,7 @@ serve(async (req) => {
     // Fetch active subscribers with their preferences
     const { data: subscribers, error: subError } = await supabase
       .from('subscribers')
-      .select('id, email')
+      .select('id, email, first_name, preferred_hour')
       .eq('is_active', true);
 
     if (subError) throw subError;
