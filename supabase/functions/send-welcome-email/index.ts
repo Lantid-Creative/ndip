@@ -92,7 +92,7 @@ function generateWelcomeHtml(firstName: string, topics: string[], preferredHour:
         <tr><td style="padding:24px 28px;text-align:center;">
           <p style="margin:0;font-size:12px;color:#aaa;">
             © ${new Date().getFullYear()} Nigeria Data Intelligence Platform · 
-            <a href="https://ndip.lovable.app" style="color:#0a6b3d;text-decoration:none;">ndip.lovable.app</a>
+            <a href="https://ndip.ng" style="color:#0a6b3d;text-decoration:none;">ndip.ng</a>
           </p>
         </td></tr>
 
