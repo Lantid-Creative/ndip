@@ -1,11 +1,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import nodemailer from 'npm:nodemailer@6.10.1'
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
 const DEFAULT_SEND_DELAY_MS = 200
 const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
+const PHP_RELAY_URL = 'https://ndip.ng/api/send-email.php'
 
 function isRateLimited(error: unknown): boolean {
   if (error && typeof error === 'object' && 'status' in error) {
@@ -21,30 +21,50 @@ function getRetryAfterSeconds(error: unknown): number {
   return 60
 }
 
-async function sendSmtpEmail(payload: {
+async function sendViaPhpRelay(payload: {
   to: string
   from: string
   subject: string
   html: string
   text?: string
 }) {
-  const transporter = nodemailer.createTransport({
-    host: Deno.env.get('SMTP_HOST'),
-    port: parseInt(Deno.env.get('SMTP_PORT') || '465'),
-    secure: true, // SSL/TLS on port 465
-    auth: {
-      user: Deno.env.get('SMTP_USERNAME'),
-      pass: Deno.env.get('SMTP_PASSWORD'),
+  const apiKey = Deno.env.get('PHP_RELAY_API_KEY')
+  if (!apiKey) throw new Error('PHP_RELAY_API_KEY not configured')
+
+  // Parse "Name <email>" format
+  let fromName = 'NDIP Nigeria'
+  let fromEmail = 'update@ndip.ng'
+  const match = payload.from.match(/^(.+?)\s*<(.+?)>$/)
+  if (match) {
+    fromName = match[1].trim()
+    fromEmail = match[2].trim()
+  }
+
+  const response = await fetch(PHP_RELAY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
     },
+    body: JSON.stringify({
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text || '',
+      from_name: fromName,
+      from_email: fromEmail,
+    }),
   })
 
-  await transporter.sendMail({
-    from: payload.from,
-    to: payload.to,
-    subject: payload.subject,
-    text: payload.text || '',
-    html: payload.html,
-  })
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`PHP relay error (${response.status}): ${body}`)
+  }
+
+  const result = await response.json()
+  if (!result.success) {
+    throw new Error(`PHP relay failed: ${JSON.stringify(result)}`)
+  }
 }
 
 Deno.serve(async (req) => {
@@ -59,11 +79,11 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Verify SMTP config is present
-  if (!Deno.env.get('SMTP_HOST') || !Deno.env.get('SMTP_USERNAME') || !Deno.env.get('SMTP_PASSWORD')) {
-    console.error('Missing SMTP configuration')
+  // Verify PHP relay config is present
+  if (!Deno.env.get('PHP_RELAY_API_KEY')) {
+    console.error('Missing PHP_RELAY_API_KEY')
     return new Response(
-      JSON.stringify({ error: 'SMTP not configured' }),
+      JSON.stringify({ error: 'PHP relay not configured' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
@@ -177,7 +197,7 @@ Deno.serve(async (req) => {
       }
 
       try {
-        await sendSmtpEmail({
+        await sendViaPhpRelay({
           to: payload.to,
           from: payload.from || defaultFrom,
           subject: payload.subject,
