@@ -1,31 +1,30 @@
-import { useState, useEffect, useMemo } from "react";
-import { Search, Loader2, TrendingUp, Hash, BarChart3, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Search, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNLQuery } from "@/hooks/useDataCommons";
 import { getTimeSeries, getObservation } from "@/lib/datacommons";
 import { parseTimeSeries, parseLatestValue } from "@/hooks/useDataCommons";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, Legend } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 
 const EXAMPLE_QUERIES = [
   "What is Nigeria's population?",
-  "GDP per capita in Nigeria",
+  "Health in Nigeria",
   "Life expectancy in Nigeria over time",
   "CO2 emissions per capita in Nigeria",
   "Fertility rate in Nigeria",
 ];
 
 const CHART_COLORS = [
-  'hsl(152, 82%, 20%)',
-  'hsl(40, 80%, 55%)',
-  'hsl(200, 60%, 40%)',
-  'hsl(350, 60%, 45%)',
-  'hsl(280, 50%, 45%)',
+  '#c5221f', // DC red
+  '#1a73e8', // DC blue
+  '#34a853', // DC green
+  '#f9ab00', // DC yellow
+  '#9334e6', // DC purple
 ];
 
-// Extract the first N renderable blocks from NL response
 function extractBlocks(data: any) {
   if (!data?.config?.categories) return [];
   const blocks: any[] = [];
@@ -37,7 +36,7 @@ function extractBlocks(data: any) {
   const mainPlace = placeDcids[0] || 'country/NGA';
 
   for (const block of category.blocks) {
-    if (blocks.length >= 6) break;
+    if (blocks.length >= 8) break;
     const tiles: any[] = [];
     for (const col of block.columns || []) {
       for (const tile of col.tiles || []) {
@@ -56,6 +55,7 @@ function extractBlocks(data: any) {
     blocks.push({
       title: block.title,
       description: block.description,
+      footnote: block.footnote,
       tiles,
       mainPlace,
     });
@@ -63,7 +63,6 @@ function extractBlocks(data: any) {
   return blocks;
 }
 
-// Renders a single chart tile with fetched data
 function ChartTile({ tile, mainPlace }: { tile: any; mainPlace: string }) {
   const dcids = tile.statVars.map((sv: any) => sv.dcid);
 
@@ -79,45 +78,74 @@ function ChartTile({ tile, mainPlace }: { tile: any; mainPlace: string }) {
   });
 
   if (isLoading) {
-    return <Skeleton className="h-48 w-full rounded-lg" />;
+    return <Skeleton className="h-52 w-full rounded-lg" />;
   }
 
   if (tile.type === 'HIGHLIGHT') {
     return <HighlightTile tile={tile} data={data} mainPlace={mainPlace} />;
   }
-
   if (tile.type === 'LINE') {
     return <LineTile tile={tile} data={data} mainPlace={mainPlace} />;
   }
-
   if (tile.type === 'BAR') {
     return <BarTile tile={tile} data={data} mainPlace={mainPlace} />;
   }
-
   if (tile.type === 'RANKING') {
-    return null; // Rankings need child entity data, skip for now
+    return null;
   }
-
   return null;
+}
+
+function getSourceInfo(data: any, dcid: string, mainPlace: string) {
+  try {
+    const facets = data?.byVariable?.[dcid]?.byEntity?.[mainPlace]?.orderedFacets;
+    if (!facets || facets.length === 0) return null;
+    const facetId = facets[0].facetId;
+    const facetMeta = data?.facets?.[facetId];
+    if (!facetMeta) return null;
+    const url = facetMeta.provenanceUrl || '';
+    const domain = url ? new URL(url).hostname.replace('www.', '') : '';
+    return { url, domain, importName: facetMeta.importName };
+  } catch {
+    return null;
+  }
+}
+
+function SourceAttribution({ data, dcid, mainPlace }: { data: any; dcid: string; mainPlace: string }) {
+  const source = getSourceInfo(data, dcid, mainPlace);
+  if (!source?.domain) return null;
+  return (
+    <p className="text-[11px] text-muted-foreground mt-2">
+      Source:{' '}
+      <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+        {source.domain}
+      </a>
+    </p>
+  );
 }
 
 function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: string }) {
   const values = tile.statVars.map((sv: any) => {
     const parsed = parseLatestValue(data, sv.dcid, mainPlace);
-    return { name: sv.name, ...parsed };
+    return { name: sv.name, dcid: sv.dcid, ...parsed };
   }).filter((v: any) => v?.value != null);
 
   if (values.length === 0) return null;
 
   return (
-    <div className="bg-green-light/50 rounded-xl p-5 flex flex-col justify-center">
+    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-6 flex flex-col justify-center border border-blue-100 dark:border-blue-900/40">
       {values.map((v: any, i: number) => (
         <div key={i}>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">{v.name}</p>
-          <p className="text-3xl font-bold text-foreground font-sans">
-            {formatValue(v.value)}
+          <p className="text-4xl font-bold text-foreground tracking-tight">
+            {formatHighlightValue(v.value)}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">{v.date}</p>
+          {getUnit(v.name) && (
+            <p className="text-sm text-muted-foreground mt-1">{getUnit(v.name)}</p>
+          )}
+          <p className="text-sm font-medium text-foreground mt-2">
+            {tile.title || v.name} ({v.date})
+          </p>
+          <SourceAttribution data={data} dcid={v.dcid} mainPlace={mainPlace} />
         </div>
       ))}
     </div>
@@ -125,13 +153,11 @@ function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPl
 }
 
 function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: string }) {
-  // Merge time series from multiple stat vars
   const chartData = useMemo(() => {
     if (!data) return [];
     if (tile.statVars.length === 1) {
       return parseTimeSeries(data, tile.statVars[0].dcid, mainPlace);
     }
-    // Multiple vars - merge by date
     const dateMap: Record<string, any> = {};
     tile.statVars.forEach((sv: any) => {
       const series = parseTimeSeries(data, sv.dcid, mainPlace);
@@ -147,72 +173,74 @@ function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: 
     return <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No data available</div>;
   }
 
-  const dataKey = tile.statVars.length === 1 ? 'value' : tile.statVars[0].dcid;
-
   return (
-    <div className="bg-card rounded-xl p-4">
-      <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(v) => formatAxisValue(v)}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '8px',
-              fontSize: '12px',
-            }}
-            formatter={(value: number, name: string) => {
-              const svName = tile.statVars.find((sv: any) => sv.dcid === name)?.name || name;
-              return [formatValue(value), svName === 'value' ? tile.statVars[0]?.name : svName];
-            }}
-          />
-          {tile.statVars.length === 1 ? (
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={CHART_COLORS[0]}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4 }}
+    <div className="bg-card rounded-xl p-5 border border-border">
+      <h5 className="text-sm font-semibold text-foreground mb-1">{tile.title}</h5>
+      <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
+      <div className="mt-3">
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+              tickLine={false}
+              axisLine={{ stroke: 'hsl(var(--border))' }}
             />
-          ) : (
-            tile.statVars.map((sv: any, i: number) => (
+            <YAxis
+              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={formatAxisValue}
+              width={55}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
+                fontSize: '12px',
+              }}
+              formatter={(value: number, name: string) => {
+                const svName = tile.statVars.find((sv: any) => sv.dcid === name)?.name || name;
+                return [formatValue(value), svName === 'value' ? tile.statVars[0]?.name : svName];
+              }}
+            />
+            {tile.statVars.length === 1 ? (
               <Line
-                key={sv.dcid}
                 type="monotone"
-                dataKey={sv.dcid}
-                stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                dataKey="value"
+                stroke={CHART_COLORS[0]}
                 strokeWidth={2}
                 dot={false}
-                name={sv.dcid}
-                activeDot={{ r: 4 }}
+                activeDot={{ r: 4, fill: CHART_COLORS[0] }}
               />
-            ))
-          )}
-        </LineChart>
-      </ResponsiveContainer>
-      {tile.statVars.length > 1 && (
-        <div className="flex gap-4 mt-2 justify-center">
+            ) : (
+              tile.statVars.map((sv: any, i: number) => (
+                <Line
+                  key={sv.dcid}
+                  type="monotone"
+                  dataKey={sv.dcid}
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                  name={sv.dcid}
+                  activeDot={{ r: 4 }}
+                />
+              ))
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+        {/* Legend */}
+        <div className="flex gap-4 mt-2 px-2">
           {tile.statVars.map((sv: any, i: number) => (
             <div key={sv.dcid} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <div className="w-3 h-[2px] rounded" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
               {sv.name}
             </div>
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -222,27 +250,42 @@ function BarTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: s
     if (!data) return [];
     return tile.statVars.map((sv: any) => {
       const parsed = parseLatestValue(data, sv.dcid, mainPlace);
-      return { name: sv.name, value: parsed?.value || 0 };
+      return { name: sv.name, value: parsed?.value || 0, dcid: sv.dcid };
     }).filter((d: any) => d.value > 0);
   }, [data, tile.statVars, mainPlace]);
 
   if (chartData.length === 0) return null;
 
   return (
-    <div className="bg-card rounded-xl p-4">
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-          <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} />
-          <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(v: number) => [formatValue(v), '']} />
-          <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={36}>
-            {chartData.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="bg-card rounded-xl p-5 border border-border">
+      <h5 className="text-sm font-semibold text-foreground mb-1">{tile.title}</h5>
+      <SourceAttribution data={data} dcid={tile.statVars[0]?.dcid} mainPlace={mainPlace} />
+      <div className="mt-3">
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} tickFormatter={formatAxisValue} />
+            <Tooltip
+              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+              formatter={(v: number) => [formatValue(v), '']}
+            />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={36}>
+              {chartData.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
+}
+
+function formatHighlightValue(v: number): string {
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 10_000) return `${(v / 1_000).toFixed(0)}K`;
+  if (Number.isInteger(v)) return v.toLocaleString();
+  return v.toFixed(1);
 }
 
 function formatValue(v: number): string {
@@ -259,7 +302,16 @@ function formatAxisValue(v: number): string {
   return v.toString();
 }
 
-// Related topics as clickable chips
+function getUnit(name: string): string | null {
+  const lower = name.toLowerCase();
+  if (lower.includes('rate') && lower.includes('mortality')) return '/1k live births';
+  if (lower.includes('per capita')) return 'per capita';
+  if (lower.includes('fertility')) return 'births per woman';
+  if (lower.includes('life expectancy')) return 'years';
+  if (lower.includes('growth rate')) return '%';
+  return null;
+}
+
 function RelatedTopics({ data, onTopicClick }: { data: any; onTopicClick: (q: string) => void }) {
   const topics = data?.relatedThings?.peerTopics || [];
   const places = data?.relatedThings?.mainTopics || [];
@@ -290,7 +342,6 @@ const NLSearchPanel = () => {
   const { data, isLoading, error } = useNLQuery(submittedQuery);
 
   const blocks = useMemo(() => (data ? extractBlocks(data) : []), [data]);
-  const placeName = data?.place?.name || 'Nigeria';
   const hasFailure = data?.failure;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -347,7 +398,7 @@ const NLSearchPanel = () => {
       )}
 
       {!hasFailure && blocks.length > 0 && !isLoading && (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-8 animate-fade-in">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-primary" />
             <h3 className="font-serif text-xl text-foreground">
@@ -356,20 +407,26 @@ const NLSearchPanel = () => {
           </div>
 
           {blocks.map((block, bi) => (
-            <div key={bi} className="bg-card rounded-xl p-6 shadow-card space-y-4">
-              <div>
+            <section key={bi} className="space-y-3">
+              {/* Block header */}
+              <div className="border-b border-border pb-2">
                 <h4 className="font-serif text-lg text-foreground">{block.title}</h4>
                 {block.description && (
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{block.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-3xl">{block.description}</p>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Tiles: line + highlight side by side like DC */}
+              <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-4">
                 {block.tiles.map((tile: any, ti: number) => (
                   <ChartTile key={ti} tile={tile} mainPlace={block.mainPlace} />
                 ))}
               </div>
-            </div>
+
+              {block.footnote && (
+                <p className="text-[11px] text-muted-foreground italic">{block.footnote}</p>
+              )}
+            </section>
           ))}
 
           <RelatedTopics data={data} onTopicClick={handleQueryClick} />
