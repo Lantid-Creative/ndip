@@ -96,20 +96,25 @@ async function fetchIndicatorsForTopics(apiKey: string, topics: string[]) {
 }
 
 async function generateAIAnalysis(indicators: { label: string; value: string; date: string; topic: string }[], topics: string[]) {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) return null;
+  const azureEndpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT');
+  const azureKey = Deno.env.get('AZURE_OPENAI_API_KEY');
+  if (!azureEndpoint || !azureKey) {
+    console.error('Azure OpenAI credentials not configured');
+    return null;
+  }
 
   const dataContext = indicators.map(i => `${i.label}: ${i.value} (${i.date})`).join('\n');
 
   try {
-    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Azure OpenAI endpoint should include the deployment and api-version
+    // e.g. https://<resource>.openai.azure.com/openai/deployments/<deployment>/chat/completions?api-version=2024-02-15-preview
+    const resp = await fetch(azureEndpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'api-key': azureKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
         messages: [
           {
             role: 'system',
@@ -123,10 +128,14 @@ async function generateAIAnalysis(indicators: { label: string; value: string; da
       }),
     });
 
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      console.error('Azure OpenAI error:', resp.status, await resp.text());
+      return null;
+    }
     const result = await resp.json();
     return result.choices?.[0]?.message?.content || null;
-  } catch {
+  } catch (e) {
+    console.error('Azure OpenAI call failed:', e);
     return null;
   }
 }
