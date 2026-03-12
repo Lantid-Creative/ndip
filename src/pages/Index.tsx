@@ -197,7 +197,7 @@ function SubscribeSection() {
         ) : (
           <div className="space-y-5">
             {/* Name fields */}
-            <div className="flex gap-2 max-w-md mx-auto">
+            <div className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
               <input
                 type="text"
                 required
