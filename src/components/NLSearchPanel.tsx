@@ -191,7 +191,7 @@ function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPl
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-primary/5 rounded-xl p-6 flex flex-col justify-center border border-primary/10"
+      className="bg-primary/5 rounded-xl p-6 flex flex-col justify-center border border-primary/10 overflow-hidden"
     >
       {values.map((v: any, i: number) => (
         <div key={i}>
