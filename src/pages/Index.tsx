@@ -128,6 +128,9 @@ const Index = () => {
             </div>
           </section>
 
+          {/* Subscribe Section */}
+          <SubscribeSection />
+
           {/* Footer sources */}
           <section className="border-t border-border py-8">
             <div className="container mx-auto px-4 flex items-center gap-3 justify-center text-xs text-muted-foreground">
