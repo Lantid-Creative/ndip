@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { SMTPClient } from 'npm:denomailer@1.6.0'
+import nodemailer from 'npm:nodemailer@6.10.1'
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
@@ -28,32 +28,23 @@ async function sendSmtpEmail(payload: {
   html: string
   text?: string
 }) {
-  const smtpHost = Deno.env.get('SMTP_HOST')!
-  const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '465')
-  const smtpUsername = Deno.env.get('SMTP_USERNAME')!
-  const smtpPassword = Deno.env.get('SMTP_PASSWORD')!
-
-  const client = new SMTPClient({
-    connection: {
-      hostname: smtpHost,
-      port: smtpPort,
-      tls: true,
-      auth: {
-        username: smtpUsername,
-        password: smtpPassword,
-      },
+  const transporter = nodemailer.createTransport({
+    host: Deno.env.get('SMTP_HOST'),
+    port: parseInt(Deno.env.get('SMTP_PORT') || '465'),
+    secure: true, // SSL/TLS on port 465
+    auth: {
+      user: Deno.env.get('SMTP_USERNAME'),
+      pass: Deno.env.get('SMTP_PASSWORD'),
     },
   })
 
-  await client.send({
+  await transporter.sendMail({
     from: payload.from,
     to: payload.to,
     subject: payload.subject,
-    content: payload.text || '',
+    text: payload.text || '',
     html: payload.html,
   })
-
-  await client.close()
 }
 
 Deno.serve(async (req) => {
