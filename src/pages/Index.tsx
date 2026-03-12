@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, Mail, Loader2, CheckCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import NLSearchPanel from "@/components/NLSearchPanel";
 
 const TOPICS = [
