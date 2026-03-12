@@ -5,16 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const AZURE_KEY = Deno.env.get('AZURE_OPENAI_API_KEY');
-  const AZURE_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT');
-
-  if (!AZURE_KEY || !AZURE_ENDPOINT) {
-    return new Response(JSON.stringify({ error: 'Azure OpenAI not configured' }), {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    return new Response(JSON.stringify({ error: 'AI not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -22,14 +22,13 @@ serve(async (req) => {
   try {
     const { query, dataSummary, mode } = await req.json();
 
-    const endpoint = AZURE_ENDPOINT.endsWith('/') ? AZURE_ENDPOINT.slice(0, -1) : AZURE_ENDPOINT;
-
     // ─── Suggestions-only mode ─────────────────────────────────────
     if (mode === 'suggestions_only') {
-      const suggestResp = await fetch(endpoint, {
+      const suggestResp = await fetch(AI_GATEWAY_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api-key': AZURE_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LOVABLE_API_KEY}` },
         body: JSON.stringify({
+          model: 'google/gemini-2.5-flash-lite',
           messages: [
             { role: 'system', content: 'You suggest search queries for a Nigeria data platform powered by Google Data Commons. Return ONLY a JSON array of 6 strings. Each query must be a concrete, measurable statistical question about Nigeria that Data Commons can answer (use indicators like GDP, population, life expectancy, literacy rate, unemployment, CO2 emissions, infant mortality, fertility rate, internet users, etc). Make them relevant to the user\'s original intent.' },
             { role: 'user', content: query },
@@ -38,6 +37,17 @@ serve(async (req) => {
         }),
       });
       if (!suggestResp.ok) {
+        const status = suggestResp.status;
+        if (status === 429) {
+          return new Response(JSON.stringify({ error: 'Rate limit exceeded, please try again later.' }), {
+            status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        if (status === 402) {
+          return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add funds.' }), {
+            status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         return new Response('[]', { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       const suggestResult = await suggestResp.json();
@@ -59,13 +69,14 @@ ${dataSummary}
 
 Analyze this data deeply for Nigeria. Use actual numbers.`;
 
-    const response = await fetch(endpoint, {
+    const response = await fetch(AI_GATEWAY_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api-key': AZURE_KEY,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -147,9 +158,20 @@ Analyze this data deeply for Nigeria. Use actual numbers.`;
     });
 
     if (!response.ok) {
+      const status = response.status;
+      if (status === 429) {
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded, please try again later.' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (status === 402) {
+        return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add funds.' }), {
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       const errText = await response.text();
-      console.error(`Azure OpenAI error [${response.status}]:`, errText);
-      return new Response(JSON.stringify({ error: `AI analysis failed: ${response.status}` }), {
+      console.error(`AI gateway error [${status}]:`, errText);
+      return new Response(JSON.stringify({ error: `AI analysis failed: ${status}` }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
