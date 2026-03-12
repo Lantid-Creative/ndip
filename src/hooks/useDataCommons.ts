@@ -37,6 +37,8 @@ export function useNLQuery(query: string) {
     queryFn: () => naturalLanguageQuery(query),
     enabled: !!query,
     staleTime: 1000 * 60 * 10,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }
 
