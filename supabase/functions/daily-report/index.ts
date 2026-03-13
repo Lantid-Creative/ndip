@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 const DATA_COMMONS_API = 'https://api.datacommons.org/v2/observation'
-const PLATFORM_URL = Deno.env.get('PLATFORM_URL') || 'https://ndip.ng'
+const PLATFORM_URL = Deno.env.get('PLATFORM_URL') || 'https://ndip.lovable.app'
 
 // Topic -> Data Commons indicators mapping
 const TOPIC_INDICATORS: Record<string, { dcid: string; label: string; format: (v: number) => string }[]> = {
