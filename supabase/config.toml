@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.chat-data]
 verify_jwt = false
+
+[functions.daily-report]
+verify_jwt = false
+
+[functions.send-welcome-email]
+verify_jwt = false
