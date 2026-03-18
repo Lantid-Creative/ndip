@@ -244,7 +244,7 @@ function ChartSummary({ tile, data, mainPlace }: { tile: any; data: any; mainPla
         </div>
       )}
       {getUnit(summary.name) && <p className="text-sm text-muted-foreground mt-1">{getUnit(summary.name)}</p>}
-      <p className="text-sm font-medium text-foreground mt-3">{tile.title || summary.name} in Nigeria ({summary.date})</p>
+      <p className="text-sm font-medium text-foreground mt-3">{resolveTitle(tile.title || summary.name, { date: summary.date })} in Nigeria ({summary.date})</p>
       {summary.source?.domain && (
         <p className="text-[11px] text-muted-foreground mt-2 truncate">
           Source: <a href={summary.source.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{summary.source.domain}</a>
