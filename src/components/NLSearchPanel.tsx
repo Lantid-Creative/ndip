@@ -281,7 +281,7 @@ function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: 
     <>
       <div className="bg-card rounded-xl p-5 border border-border overflow-hidden">
         <div className="flex items-center justify-between mb-1">
-          <h5 className="text-sm font-semibold text-foreground">{tile.title}</h5>
+           <h5 className="text-sm font-semibold text-foreground">{resolveTitle(tile.title)}</h5>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setViewMode('chart')}
