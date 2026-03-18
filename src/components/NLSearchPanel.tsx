@@ -11,6 +11,17 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const CHART_COLORS = ['#c5221f', '#1a73e8', '#34a853', '#f9ab00', '#9334e6'];
 
+// ─── Helpers ────────────────────────────────────────────────────────
+
+/** Resolve template placeholders like ${date} in tile titles */
+function resolveTitle(title: string, context?: { date?: string }): string {
+  if (!title) return title;
+  return title
+    .replace(/\$\{date\}/g, context?.date || '')
+    .replace(/\(\s*\)/g, '') // remove empty parens if date was empty
+    .trim();
+}
+
 // ─── Data extraction ────────────────────────────────────────────────
 
 function extractBlocks(data: any) {
@@ -197,7 +208,7 @@ function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPl
         <div key={i}>
           <p className="text-4xl font-bold text-foreground tracking-tight">{formatHighlightValue(v.value)}</p>
           {getUnit(v.name) && <p className="text-sm text-muted-foreground mt-1">{getUnit(v.name)}</p>}
-          <p className="text-sm font-medium text-foreground mt-2">{tile.title || v.name} ({v.date})</p>
+          <p className="text-sm font-medium text-foreground mt-2">{resolveTitle(tile.title || v.name, { date: v.date })} ({v.date})</p>
           <SourceAttribution data={data} dcid={v.dcid} mainPlace={mainPlace} />
         </div>
       ))}
@@ -233,7 +244,7 @@ function ChartSummary({ tile, data, mainPlace }: { tile: any; data: any; mainPla
         </div>
       )}
       {getUnit(summary.name) && <p className="text-sm text-muted-foreground mt-1">{getUnit(summary.name)}</p>}
-      <p className="text-sm font-medium text-foreground mt-3">{tile.title || summary.name} in Nigeria ({summary.date})</p>
+      <p className="text-sm font-medium text-foreground mt-3">{resolveTitle(tile.title || summary.name, { date: summary.date })} in Nigeria ({summary.date})</p>
       {summary.source?.domain && (
         <p className="text-[11px] text-muted-foreground mt-2 truncate">
           Source: <a href={summary.source.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{summary.source.domain}</a>
@@ -270,7 +281,7 @@ function LineTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: 
     <>
       <div className="bg-card rounded-xl p-5 border border-border overflow-hidden">
         <div className="flex items-center justify-between mb-1">
-          <h5 className="text-sm font-semibold text-foreground">{tile.title}</h5>
+           <h5 className="text-sm font-semibold text-foreground">{resolveTitle(tile.title)}</h5>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setViewMode('chart')}
@@ -371,7 +382,7 @@ function BarTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: s
     <>
       <div className="bg-card rounded-xl p-5 border border-border overflow-hidden">
         <div className="flex items-center justify-between mb-1">
-          <h5 className="text-sm font-semibold text-foreground">{tile.title}</h5>
+          <h5 className="text-sm font-semibold text-foreground">{resolveTitle(tile.title)}</h5>
           <div className="flex items-center gap-1">
             <button onClick={() => setViewMode('chart')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'chart' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`} title="Chart view">
               <BarChart3 className="w-3.5 h-3.5" />
@@ -541,7 +552,7 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
 
             {/* Key Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {analysis.keyMetrics.map((m, i) => {
+              {analysis.keyMetrics.filter(m => m.value && m.value.toLowerCase() !== 'unknown' && m.value !== 'N/A').map((m, i) => {
                 const TrendIcon = trendIcons[m.trend] || Minus;
                 const trendColor = m.trend === 'up' ? 'text-green-600' : m.trend === 'down' ? 'text-red-600' : 'text-muted-foreground';
                 return (
