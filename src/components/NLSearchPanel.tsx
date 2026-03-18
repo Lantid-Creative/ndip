@@ -382,7 +382,7 @@ function BarTile({ tile, data, mainPlace }: { tile: any; data: any; mainPlace: s
     <>
       <div className="bg-card rounded-xl p-5 border border-border overflow-hidden">
         <div className="flex items-center justify-between mb-1">
-          <h5 className="text-sm font-semibold text-foreground">{tile.title}</h5>
+          <h5 className="text-sm font-semibold text-foreground">{resolveTitle(tile.title)}</h5>
           <div className="flex items-center gap-1">
             <button onClick={() => setViewMode('chart')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'chart' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`} title="Chart view">
               <BarChart3 className="w-3.5 h-3.5" />
