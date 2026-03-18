@@ -732,11 +732,28 @@ function formatAxisValue(v: number): string {
 
 function getUnit(name: string): string | null {
   const lower = name.toLowerCase();
-  if (lower.includes('rate') && lower.includes('mortality')) return '/1k live births';
+  // Rates & percentages
+  if (lower.includes('rate') && lower.includes('mortality')) return 'per 1,000 live births';
+  if (lower.includes('as a fraction') || lower.includes('asfraction')) return '%';
+  if (lower.includes('growth rate') || lower.includes('percentage') || lower.includes('percent')) return '%';
+  if (lower.includes('rate') && !lower.includes('fertility')) return '%';
+  // Per capita
   if (lower.includes('per capita')) return 'per capita';
+  // Demographics
   if (lower.includes('fertility')) return 'births per woman';
   if (lower.includes('life expectancy')) return 'years';
-  if (lower.includes('growth rate')) return '%';
+  if (lower.includes('count_person') || lower.includes('count_death') || lower.includes('count_birth')) return 'persons';
+  // Currency / economics
+  if (lower.includes('amount_economic') || lower.includes('grossdomestic') || lower.includes('gdp')) return 'USD';
+  if (lower.includes('amount') && (lower.includes('export') || lower.includes('import') || lower.includes('trade'))) return 'USD';
+  if (lower.includes('annual') && (lower.includes('export') || lower.includes('import'))) return 'metric tons';
+  // Emissions
+  if (lower.includes('emission') && lower.includes('carbon')) return 'tonnes CO₂';
+  if (lower.includes('emission')) return 'tonnes';
+  // Energy
+  if (lower.includes('electricity') || lower.includes('energy')) return 'kWh';
+  // Area
+  if (lower.includes('area') || lower.includes('land')) return 'sq km';
   return null;
 }
 
