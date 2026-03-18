@@ -552,7 +552,7 @@ function AIInsightsPanel({ query, blocks, collectedData, onQueryClick }: {
 
             {/* Key Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {analysis.keyMetrics.map((m, i) => {
+              {analysis.keyMetrics.filter(m => m.value && m.value.toLowerCase() !== 'unknown' && m.value !== 'N/A').map((m, i) => {
                 const TrendIcon = trendIcons[m.trend] || Minus;
                 const trendColor = m.trend === 'up' ? 'text-green-600' : m.trend === 'down' ? 'text-red-600' : 'text-muted-foreground';
                 return (
