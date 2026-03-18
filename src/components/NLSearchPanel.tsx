@@ -11,6 +11,17 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const CHART_COLORS = ['#c5221f', '#1a73e8', '#34a853', '#f9ab00', '#9334e6'];
 
+// ─── Helpers ────────────────────────────────────────────────────────
+
+/** Resolve template placeholders like ${date} in tile titles */
+function resolveTitle(title: string, context?: { date?: string }): string {
+  if (!title) return title;
+  return title
+    .replace(/\$\{date\}/g, context?.date || '')
+    .replace(/\(\s*\)/g, '') // remove empty parens if date was empty
+    .trim();
+}
+
 // ─── Data extraction ────────────────────────────────────────────────
 
 function extractBlocks(data: any) {
