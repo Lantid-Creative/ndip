@@ -208,7 +208,7 @@ function HighlightTile({ tile, data, mainPlace }: { tile: any; data: any; mainPl
         <div key={i}>
           <p className="text-4xl font-bold text-foreground tracking-tight">{formatHighlightValue(v.value)}</p>
           {getUnit(v.name) && <p className="text-sm text-muted-foreground mt-1">{getUnit(v.name)}</p>}
-          <p className="text-sm font-medium text-foreground mt-2">{tile.title || v.name} ({v.date})</p>
+          <p className="text-sm font-medium text-foreground mt-2">{resolveTitle(tile.title || v.name, { date: v.date })} ({v.date})</p>
           <SourceAttribution data={data} dcid={v.dcid} mainPlace={mainPlace} />
         </div>
       ))}
